@@ -1,0 +1,66 @@
+import { useQuasar } from "quasar";
+import addRequirement from "modules/requirement/components/add.vue";
+import editRequirement from "modules/requirement/components/edit.vue";
+import viewRequirement from "modules/requirement/components/view.vue";
+import viewRequirementNotesProgressUpdates from "modules/requirement/components/requirementNotesProgressUpdates.vue";
+
+let $q;
+let activeRowId;
+
+export function initRequirementDialogs (rowRef) {
+  $q = useQuasar();
+  activeRowId = rowRef;
+}
+
+export function onRequirementView (id) {
+  activeRowId.value = id;
+  $q.dialog({
+    component: viewRequirement,
+    componentProps: { id }
+  }).onOk(() => { activeRowId.value = id; })
+    .onCancel(() => { activeRowId.value = id; })
+    .onDismiss(() => { activeRowId.value = id; });
+}
+
+export function onRequirementNotesProgressUpdates (id, type, moduleId, module, sub_Module, refreshRequirementList) {
+  activeRowId.value = id;
+  $q.dialog({
+    component: viewRequirementNotesProgressUpdates,
+    componentProps: { id, type: type, projectId: moduleId, projectName: module, RequirementTitle: sub_Module }
+  }).onOk(() => { activeRowId.value = id; refreshRequirementList(); })
+    .onCancel(() => { activeRowId.value = id; refreshRequirementList(); })
+    .onDismiss(() => { activeRowId.value = id; refreshRequirementList(); });
+}
+
+export function onRequirementAdd (
+  projectId,
+  moduleId,
+  refresh,
+  refreshProjectModulesList
+) {
+  const componentProps = {};
+
+  if (projectId) componentProps.projectIdAttr = projectId;
+  if (moduleId) componentProps.moduleIdAttr = moduleId;
+
+  $q.dialog({
+    component: addRequirement,
+    componentProps
+  })
+    .onOk(() => {
+      refresh && refresh();
+      refreshProjectModulesList && refreshProjectModulesList();
+    });
+}
+
+export function onRequirementEdit (id, isManageDescription = false, refresh) {
+  activeRowId.value = id;
+  $q.dialog({
+    component: editRequirement,
+    componentProps: { id, isManageDescription }
+  }).onOk(() => {
+    refresh();
+  })
+    .onCancel(() => { })
+    .onDismiss(() => { });
+}

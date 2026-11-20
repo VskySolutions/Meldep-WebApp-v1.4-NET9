@@ -1,0 +1,440 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Vsky.Api.ApiErrors;
+using Vsky.Api.Extensions;
+using Vsky.Api.Models;
+using Vsky.Core;
+using Vsky.Models;
+using Vsky.Services.Common;
+using Vsky.Services.Issues;
+using Vsky.Services.Note;
+using Vsky.Services.ProjectActionItem;
+using Vsky.Services.ProjectActivities;
+using Vsky.Services.ProjectModules;
+using Vsky.Services.ProjectQuestionsAnswer;
+using Vsky.Services.ProjectTasks;
+using Vsky.Services.Requirements;
+using Vsky.Services.Sites;
+using Vsky.Services.TestCases;
+using Vsky.Services.TestPlans;
+
+namespace Vsky.Api.Controllers
+{
+    [Route("project-dashboard")]
+
+    [RequireMenu(MenuLinks.ProjectWork)]
+    public class ProjectDashboardController : BaseController
+    {
+        private readonly GlobalVariable _globalVariable;
+        private readonly IMapper _mapper;
+        private readonly IProjectModuleService _projectModuleService;
+        private readonly ISiteService _siteService;
+        private readonly ICommonService _commonService;
+        private readonly IProjectTaskService _taskService;
+        private readonly IIssueService _issueService;
+        private readonly IProjectActivityService _activityService;
+        private readonly INoteService _noteService;
+        private readonly ITestPlanService _testPlanService;
+        private readonly ITestCaseService _testCaseService;
+        private readonly IRequirementGroupService _requirementGroupService;
+        private readonly IRequirementService _requirementService;
+        private readonly IProjectQuestionsAnswersService _projectQuestionsAnswersService;
+        private readonly IProjectActionItemsService _projectActionItemsService;
+
+        public ProjectDashboardController(
+            GlobalVariable globalVariable,
+            IMapper mapper,
+            IProjectModuleService projectModuleService,
+            ISiteService siteService,
+            ICommonService commonService,
+            IProjectTaskService taskService,
+            IIssueService issueService,
+            IProjectActivityService projectActivityService,
+            INoteService noteService,
+            ITestPlanService testPlanService,
+            ITestCaseService testCaseService,
+            IRequirementGroupService requirementGroupService,
+            IRequirementService requirementService,
+            IProjectQuestionsAnswersService projectQuestionsAnswersService,
+            IProjectActionItemsService projectActionItemsService
+            )
+        {
+            _globalVariable = globalVariable;
+            _mapper = mapper;
+            _projectModuleService = projectModuleService;
+            _siteService = siteService;
+            _commonService = commonService;
+            _taskService = taskService;
+            _issueService = issueService;
+            _activityService = projectActivityService;
+            _noteService = noteService;
+            _testPlanService = testPlanService;
+            _testCaseService = testCaseService;
+            _requirementGroupService = requirementGroupService;
+            _requirementService = requirementService;
+            _projectQuestionsAnswersService = projectQuestionsAnswersService;
+            _projectActionItemsService = projectActionItemsService;
+        }
+
+        #region projectModule
+        [HttpPost("projectModulelist")]
+        [ReadAccess]
+        public IActionResult GetAllProjectModulesForDashboard(ProjectModuleSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var list = _projectModuleService.GetAllProjectModulesForDashboard(SiteId, searchModel.ProjectId, searchModel.pageName, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                var model = new ProjectModuleListModel
+                {
+                    Data = _mapper.Map<IList<ProjectModuleModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllProjectTasks
+        [HttpPost("projectTaskList")]
+        [ReadAccess]
+        public async Task<IActionResult> GetAllProjectTasksForDashboard(ProjectTaskSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var employeeId = _commonService.GetEmployeeIdByUserIdAndEmail(SiteId, LoggedUserId);
+
+                var list = await _taskService.GetAllProjectTasksForDashboard(
+                    SiteId,
+                    LoggedUserId,
+                    employeeId,
+                    searchModel.ProjectId,
+                    searchModel.SortBy,
+                    searchModel.Descending, 
+                    searchModel.Page, 
+                    searchModel.PageSize
+                );
+                var model = new ProjectTaskListModel
+                {
+                    Data = _mapper.Map<IList<ProjectTaskModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllIssues
+        [HttpPost("issueList")]
+        [ReadAccess]
+        public async Task<IActionResult> GetAllIssuesForDashboard(IssueSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var employeeId = _commonService.GetEmployeeIdByUserIdAndEmail(SiteId, LoggedUserId);
+
+                var list = await _issueService.GetAllIssuesForDashboard(SiteId, LoggedUserId, employeeId, searchModel.ProjectId, searchModel.TargetMonthStr, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                var model = new IssueListModel
+                {
+                    Data = _mapper.Map<IList<IssueModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllProjectActivities
+        [HttpPost("projectActivityList")]
+        [ReadAccess]
+        public IActionResult GetAllProjectActivitiesForDashboard(ProjectActivitySearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var list = _activityService.GetAllProjectActivitiesForDashboard(SiteId, 
+                    searchModel.ProjectId,
+                    searchModel.SortBy, 
+                    searchModel.Descending,
+                    searchModel.Page,
+                    searchModel.PageSize
+                );
+                // Map the fetched list to a model suitable for the response
+                var model = new ProjectActivityListModel
+                {
+                    Data = _mapper.Map<IList<ProjectActivityModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllNotesForDashboard
+        [HttpPost("notesList")]
+        [ReadAccess]
+        public IActionResult GetAllNotesByProjectId(NoteSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var list = _noteService.GetAllNotesByProjectId(SiteId, searchModel.ProjectId, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                var model = new NoteListModel
+                {
+                    Data = _mapper.Map<IList<NoteModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllTestPlanForDashboard
+        [HttpPost("testPlanList")]
+        [ReadAccess]
+        public IActionResult GetAllTestPlanForDashboard(TestPlanSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var list = _testPlanService.GetAllTestPlanForDashboard(SiteId, searchModel.ProjectId, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                var model = new TestPlanListModel
+                {
+                    Data = _mapper.Map<IList<TestPlanModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllTestCasesForDashboard
+        // Title: Get All TestCases
+        // Description: This endpoint fetches a list of test cases based on the provided search criteria such as name, sorting, and pagination. 
+        [HttpPost("testCasesList")]
+        [ReadAccess]
+        public async Task<IActionResult> GetAllTestCasesForDashboard(TestCaseSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var employeeId = _commonService.GetEmployeeIdByUserIdAndEmail(SiteId, LoggedUserId);
+
+                var list = await _testCaseService.GetAllTestCasesForDashboard(SiteId, LoggedUserId, employeeId, searchModel.ProjectId, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                
+                var model = new TestCaseListModel
+                {
+                    Data = _mapper.Map<IList<TestCaseModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllRequirementGroupsForDashboard
+        // Title: Get All RequirementGroups
+        // Description: This endpoint fetches a list of RequirementGroups based on the provided search criteria such as name, sorting, and pagination. 
+        [HttpPost("requirementGroupList")]
+        [ReadAccess]
+        public IActionResult GetAllRequirementGroupsForDashboard(RequirementGroupSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var list = _requirementGroupService.GetAllRequirementGroupsForDashboard(SiteId, searchModel.ProjectId, searchModel.SortBy, searchModel.Descending, searchModel.Page, searchModel.PageSize);
+                
+                var model = new RequirementGroupListModel
+                {
+                    Data = _mapper.Map<IList<RequirementGroupModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllRequirementsForDashboard
+        // Title: Get All Requirements
+        // Description: This endpoint fetches a list of Requirements based on the provided search criteria such as name, sorting, and pagination. 
+        [HttpPost("requirementList")]
+        [ReadAccess]
+        public async Task<IActionResult> GetAllRequirementsForDashboard(RequirementSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+                var employeeId = _commonService.GetEmployeeIdByUserIdAndEmail(SiteId, LoggedUserId);
+
+                var list = await _requirementService.GetAllRequirementsForDashboard(
+                    SiteId,
+                    LoggedUserId,
+                    employeeId,
+                    searchModel.ProjectId, 
+                    searchModel.SortBy, 
+                    searchModel.Descending, 
+                    searchModel.Page, 
+                    searchModel.PageSize
+                );
+
+                var model = new RequirementListModel
+                {
+                    Data = _mapper.Map<IList<RequirementModel>>(list),
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllProjectQuestionAndAnswers
+        [HttpPost("projectQuestionAndAnswersList")]
+        [ReadAccess]
+        public IActionResult GetAllProjectQuestionAndAnswersForDashboard(ProjectQuestionsAnswersSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                var list = _projectQuestionsAnswersService.GetAllProjectQuestionAndAnswersForDashboard
+                (
+                    SiteId,
+                    searchModel.ProjectId,
+                    searchModel.SortBy,
+                    searchModel.Descending,
+                    searchModel.Page,
+                    searchModel.PageSize
+                );
+
+                var model = new ProjectQuestionsAnswersList
+                {
+                    ProjectQuestionsAnswerList = list,
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllProjectActionItems
+        [HttpPost("projectActionItemsList")]
+        [ReadAccess]
+        public IActionResult GetAllProjectActionItemsForDashboard(ProjectActionItemsSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                var list = _projectActionItemsService.GetAllProjectActionItemsForDashboard
+                (
+                    SiteId,
+                    searchModel.ProjectId,
+                    searchModel.SortBy,
+                    searchModel.Descending,
+                    searchModel.Page,
+                    searchModel.PageSize
+                );
+
+                var model = new ProjectActionItemsList
+                {
+                    ProjectActionItemList = list,
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region sites info
+        [HttpGet("siteInfobyid/{id}")]
+        public async Task<IActionResult> GetOrganizationForDashboard(string id)
+        {
+            try
+            {
+                //Find site by id
+                var entity = await _siteService.GetSiteDetailsById(id);
+                if (entity == null)
+                    return BadRequest(new BadRequestError("No site found with the specified id."));
+
+                var model = _mapper.Map<SiteModel>(entity);
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+    }
+}

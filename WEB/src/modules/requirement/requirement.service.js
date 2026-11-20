@@ -1,0 +1,115 @@
+import { http } from "boot/axios";
+
+export default {
+  getAllRequirement (model) {
+    return http.post("/requirement/list", model).then(response => response.data);
+  },
+
+  getRequirement (id) {
+    return http.get(`/requirement/${id}`).then(response => response.data);
+  },
+
+  // WO-74: one requirement as an .xlsx workbook. Returns the full response so the caller can check
+  // the content type and Content-Disposition before downloading.
+  exportRequirement (id) {
+    return http.get(`/requirement/${encodeURIComponent(id)}/export`, {
+      responseType: "blob",
+      headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json" }
+    });
+  },
+
+  getRequirementDetails (id) {
+    return http.get(`/requirement/details/${id}`).then(response => response.data);
+  },
+
+  getRequirementDescriptionById (id) {
+    return http.get(`/requirement/description/${id}`).then(response => response.data);
+  },
+
+  getRequirementDataMappingLabels (requirementId) {
+    return http.get(`/requirement/data-mapping-labels/${requirementId}`).then(response => response.data);
+  },
+
+  getAllRequirementListForDropdown (projectModuleId, projectId, requirementType) {
+    return http.get(`/requirement/dropdown/list?projectModuleId=${projectModuleId}&projectId=${projectId}&requirementType=${requirementType}`).then(response => response.data);
+  },
+
+  getAllRequirementTagListForDropdown () {
+    return http.get("/requirement/requirementTags/dropdown/list").then(response => response.data);
+  },
+
+  getRequirementWorkProgressNotes (requirementId) {
+    return http.get(`/requirement/workProgressNotes?requirementId=${requirementId}`).then(response => response.data);
+  },
+
+  getAllRequirementDescriptionsById (id, latestOnTop) {
+    return http.get(`/requirement/requirement-change-log/?id=${id}&latestOnTop=${latestOnTop}`).then(response => response.data);
+  },
+
+  getRequirementsByProjectModuleId (projectModuleId) {
+    return http.get(`/requirement/getRequirementsByProjectModuleId/${projectModuleId}`).then(response => response.data);
+  },
+
+  saveRequirement (id, model) {
+    if (id) {
+      return http.put(`/requirement/${id}`, model).then(response => response.data);
+    } else {
+      return http.post("/requirement", model).then(response => response.data);
+    }
+  },
+
+  saveTags (model) {
+    return http.post("/requirement/tags", model).then(response => response.data);
+  },
+
+  saveResponseLogDescription (model) {
+    return http.post("/requirement/requirement-change-log/add-edit-description", model).then(response => response.data);
+  },
+
+  updateRequirementStatus (model) {
+    return http.post("/requirement/updateRequirementStatus", model).then(response => response.data);
+  },
+
+  updateRequirementPriority (model) {
+    return http.post("/requirement/updateRequirementPriority", model).then(response => response.data);
+  },
+
+  updateRequirementIsPinned (id, pinstatus) {
+    return http.put(`/requirement/pinstatus/${id}/${pinstatus}`).then(response => response.data);
+  },
+
+  updateRequirementColor (id, requirementColor) {
+    return http.put(`/requirement/requirementColor/${id}/${requirementColor}`).then(response => response.data);
+  },
+
+  updateRequirementDescription(model) {
+    return http.put("/requirement/requirementDescription", model).then(response => response.data);
+  },
+
+  updateRequirementDates(model) {
+    const payload = { ...model };
+
+    const dateFields = [
+      "plannedStartDateStr",
+      "plannedEndDateStr",
+      "actualStartDateStr",
+      "actualEndDateStr"
+    ];
+
+    dateFields.forEach(field => {
+      if (payload[field]) {
+        payload[field] = payload[field].replace(/\//g, "-");
+      }
+    });
+
+    return http.put("/requirement/update-dates", payload).then(response => response.data);
+  },
+
+  deleteRequirement (id) {
+    return http.delete(`/requirement/${id}`).then(response => response.data);
+  },
+
+  deleteRequirementChangeLog (id) {
+    return http.delete(`/requirement/requirement-change-log/${id}`).then(response => response.data);
+  }
+};

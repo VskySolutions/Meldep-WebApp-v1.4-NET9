@@ -1,0 +1,2001 @@
+<template>
+  <q-dialog ref="dialogRef" class="customDialog" persistent full-height position="right" @hide="onDialogHide">
+    <q-card class="q-dialog-plugin PersonMain card-header with-tools headerBasic" style="width: 1300px !important; max-width: 95vw !important;">
+      <q-card-section class="card-header with-tools bg-primary stickyHeader">
+        <div v-if="!isCharter" class="text-h2 text-white">{{ id ? "Edit" : "Add" }} Project</div>
+        <div v-else class="text-h2 text-white">{{ model.name }}</div>
+        <q-btn icon="o_close" class="close" color="white" flat round dense  @click="confirmProjectClose"/>
+      </q-card-section>
+      <q-separator />
+      <q-form greedy @submit.prevent.stop="onSubmit">
+        <div class="q-pa-md cardTable">
+          <div class="q-gutter-y-md">
+            <q-card>
+              <q-tabs v-model="tab" dense class="text-primary" active-color="primary" indicator-color="primary" active-class="bg-blue-1 borderRadiusTabs" align="left" narrow-indicator>
+                <q-tab v-if="!isCharter" name="1_tab" label="Project Info." class="q-px-lg q-mr-md" />
+                <q-tab name="2_tab" label="Project Charter" class="q-px-lg" :disable="disableTab" />
+              </q-tabs>
+              <q-separator />
+              <q-tab-panels v-model="tab" animated>
+                <q-tab-panel v-if="!isCharter" name="1_tab">
+                  <fieldset>
+                    <div class="row q-col-gutter-x-md q-mb-md">
+                      <div class="col-xxl-12 col-lg-12 col-md-12">
+                        <div class="q-mb-xs text-black">Project Name<span class="required">*</span></div>
+                        <q-input
+                          v-model="model.name"
+                          outlined
+                          stack-label
+                          hide-bottom-space
+                          :dense="true"
+                          maxlength="128"
+                          :error="v$.name.$error"
+                          :error-message="v$.name.$errors[0]?.$message"
+                          @click="v$.name.$touch"
+                        />
+                      </div>
+                    </div>
+                    <div class="row q-col-gutter-x-md q-mb-md">
+                    <formSingleSelectDropdown
+                      v-model="model.projectCategoryId"
+                      label="Project Category"
+                      :required="false"
+                      :options="projectCategoryDropdownSingleSelect.list.value"
+                      :filter="projectCategoryDropdownSingleSelect.filter"
+                      @update:model-value="getSubCategoriesByCategoryId(model.projectCategoryId)"
+                    />
+                      <formSingleSelectDropdown
+                        v-model="model.projectSubcategoryId"
+                        label="Project Subcategory"
+                        :required="false"
+                        :options="projectSubCategoryDropdownSingleSelect.list.value"
+                        :filter="projectSubCategoryDropdownSingleSelect.filter"
+                        @update:model-value="getDescriptionBySubCategoryId(model.projectCategoryId, model.projectSubcategoryId)"
+                      />
+                      <div class="col-xxl-4 col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                        <div class="q-mb-xs text-black"><label>Project Subcategory Description</label></div>
+                        <div class="form-group" disabled>
+                          <q-input
+                            v-model="model.subCtgDescription"
+                            outlined
+                            autogrow
+                            readonly
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div class="row q-col-gutter-x-md q-mb-md">
+                      <formSingleSelectDropdown
+                        v-model="model.customerId"
+                        label="Customer"
+                        required
+                        :options="customerDropdownSingleSelect.list.value"
+                        :filter="customerDropdownSingleSelect.filter"
+                        :error="v$.customerId.$error"
+                        :error-message="v$.customerId.$errors[0]?.$message"
+                        @update:model-value="getContactByCustomerId(model.customerId)"
+                      />
+                      <formSingleSelectDropdown
+                        v-model="model.companyContactId"
+                        label="Company Contact"
+                        required
+                        :options="companyContactDropdownSingleSelect.list.value"
+                        :filter="companyContactDropdownSingleSelect.filter"
+                        :error="v$.companyContactId.$error"
+                        :error-message="v$.companyContactId.$errors[0]?.$message"
+                      />
+                      <div class="col-xxl-4 col-lg-4 col-md-4 col-sm-4 col-xs-12" :class="{ edit_project: !props.id }">
+                        <div class="q-mb-xs text-black">Project Status
+                          <q-icon
+                            name="o_info"
+                            size="16px"
+                            class="q-ml-xs cursor-pointer text-grey-7"
+                          >
+                            <q-tooltip
+                              anchor="top middle"
+                              self="bottom middle"
+                              :offset="[0, 6]"
+                            >
+                              <div style="max-width: 320px; white-space: normal;">
+                                Indicates the current stage or state of the project in its lifecycle.
+                              </div>
+                            </q-tooltip>
+                          </q-icon>
+                          <span class="required">*</span>
+                        </div>
+                        <q-select
+                          v-model="model.projectStatusId"
+                          clearable use-input
+                          outlined
+                          stack-label
+                          hide-bottom-space
+                          :dense="true"
+                          :options="projectStatusList"
+                          option-value="value"
+                          option-label="text"
+                          emit-value
+                          map-options
+                          :readonly="!props.id"
+                          :error="v$.projectStatusId.$error"
+                          :error-message="v$.projectStatusId.$errors[0]?.$message"
+                          @filter="getProjectStatusListFilter"
+                          @popup-show="() => handlePopupShow(model.projectStatus.dropDownValue)"
+                          @blur="v$.projectStatusId.$touch"
+                        >
+                          <template #option="{ itemProps, opt }">
+                            <q-item v-bind="itemProps">
+                              <q-item-section>
+                                <div class="row q-col-gutter-x-md items-center">
+                                  <span>{{ opt.text }}</span>
+                                </div>
+                              </q-item-section>
+                            </q-item>
+                          </template>
+                        </q-select>
+                      </div>
+                    </div>
+                    <div class="row q-col-gutter-x-md q-mb-md">
+                      <formDate
+                        v-model="model.startDateStr"
+                        label="Start Date"
+                        :wrapperClass="'col-xxl-4 col-lg-4 col-md-4 col-sm-4 col-xs-12'"
+                        :error="v$.startDateStr.$error"
+                        :error-message="v$.startDateStr.$errors[0]?.$message"
+                        :onBlur="() => v$.startDateStr.$touch()"
+                      />
+                      <formDate
+                        v-model="model.goLiveDateStr"
+                        label="Due Date"
+                        :required="false"
+                        :wrapperClass="'col-xxl-4 col-lg-4 col-md-4 col-sm-4 col-xs-12'"
+                        :error="v$.goLiveDateStr.$error"
+                        :error-message="v$.goLiveDateStr.$errors[0]?.$message"
+                        :onBlur="() => v$.goLiveDateStr.$touch()"
+                        :dateOptions="disableProjectDatesBeforeStartDate"
+                      />
+                      <formSingleSelectDropdown
+                        v-model="model.projectPriorityId"
+                        label="Project Priority"
+                        required
+                        :options="projectPriorityDropdownSingleSelect.list.value"
+                        :filter="projectPriorityDropdownSingleSelect.filter"
+                        :error="v$.projectPriorityId.$error"
+                        :error-message="v$.projectPriorityId.$errors[0]?.$message"
+                      />
+                    </div>
+                    <div class="row q-col-gutter-x-md q-mb-md">
+                      <formSingleSelectDropdown
+                        v-model="model.projectTypeId"
+                        label="Project Type"
+                        required
+                        :options="projectTypeDropdownSingleSelect.list.value"
+                        :filter="projectTypeDropdownSingleSelect.filter"
+                        :error="v$.projectTypeId.$error"
+                        :error-message="v$.projectTypeId.$errors[0]?.$message"
+                      />
+                      <formSingleSelectDropdown
+                        v-model="model.planApproverId"
+                        label="Project Approver"
+                        required
+                        :options="projectApproverDropdownSingleSelect.list.value"
+                        :filter="projectApproverDropdownSingleSelect.filter"
+                        :error="v$.planApproverId.$error"
+                        :error-message="v$.planApproverId.$errors[0]?.$message"
+                      />
+                      <div class="col-12 col-sm-2 col-md-2 col-lg-2">
+                        <!-- <div class="q-mb-xs q-mt-md text-black">Active/Inactive Flag
+                          <q-icon
+                            name="o_info"
+                            size="16px"
+                            class="q-ml-xs cursor-pointer text-grey-7"
+                          >
+                            <q-tooltip
+                              anchor="top middle"
+                              self="bottom middle"
+                              :offset="[0, 6]"
+                            >
+                              <div style="max-width: 320px; white-space: normal;">
+                                Determines whether the project is currently available for use across the application. Active projects are displayed and available to users; Inactive projects are hidden from the overall application.
+                              </div>
+                            </q-tooltip>
+                          </q-icon>
+                        </div>
+                        <q-checkbox
+                          v-model="model.active"
+                          label="Active"
+                          :dense="true"
+                        />-->
+                       <div>
+                        <div class="q-mb-xs q-mt-md text-black">
+                          Archive/Unarchive
+                        </div>
+
+                        <div class="row items-center no-wrap q-gutter-sm">
+                          <q-radio
+                            v-model="model.isArchived"
+                            :val="true"
+                            label="Archive"
+                            dense
+                          />
+
+                          <q-radio
+                            v-model="model.isArchived"
+                            :val="false"
+                            label="Unarchive"
+                            dense
+                          />
+                        </div>
+                      </div>
+                      </div>
+                    </div>
+                    <div class="row q-col-gutter-x-md q-mb-lg">
+                      <div class="col-12 col-sm-12 col-md-12 col-lg-12">
+                        <div class="q-mb-xs text-black"><label>Project Description</label></div>
+                        <div class="form-group">
+                          <q-editor
+                            v-model="model.description"
+                            :dense="$q.screen.lt.md"
+                            :toolbar="toolbar"
+                            :fonts="fonts"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div v-if="isFileUploadOrExternal" class="row q-col-gutter-x-md q-mb-lg">
+                      <div class="col-12 q-mb-xs text-black">Project Files</div>
+                      <!-- File Uploader -->
+                      <div class="col-xxl-4 col-lg-4 col-md-4 col-sm-4 col-xs-12">
+                        <multiFileUploader
+                          :key="model.projectFiles?.length"
+                          :initialFiles="model.projectFiles"
+                          :allowedExtensions="[
+                            '.pdf','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx'
+                          ]"
+                          :maxSizeInMb="25"
+                          label="Drag files here or (+) to upload."
+                          @files-selected="handleFiles"
+                          @files-valid="isFilesValid = $event"
+                        />
+                      </div>
+                    </div>
+                    <div v-if="isFileUploadOrExternal" class="row q-col-gutter-x-md q-mb-lg">
+                      <!-- Display Files in Square Boxes with File Name Below -->
+                      <div v-if="model.projectFiles && model.projectFiles.length > 0" class="row q-gutter-md">
+                        <div
+                          v-for="(file, index) in model.projectFiles.filter(file => !file.file?.externalFileName?.trim() && !file.file?.externalFilePath?.trim())"
+                          :key="index"
+                          class="col-3 position-relative file-card text-center"
+                          style="max-width: 140px; min-width: 140px;"
+                        >
+                          <div class="file-preview square-box">
+                            <template v-if="isImageFile(file)">
+                              <img :src="file.file.virtualPath ? file.file.virtualPath : getFilePreview(file.file)" alt="File Preview" class="square-content centered-image">
+                            </template>
+                            <template v-else>
+                              <q-icon :name="getFileIcon(file.file?.mimeType)" class="file-icon square-content" size="70px" />
+                            </template>
+                            <div class="file-name q-mt-sm">
+                              <q-btn v-if="file.file?.virtualPath || file?.name" class="bg-primary text-white q-pa-xs" no-caps @click="viewFile(file)">
+                                <span class="truncate-text">
+                                  {{ file.file?.name || file.name || extractFileName(file.file?.seoFilename) }}
+                                </span>
+                              </q-btn>
+                            </div>
+                          </div>
+                          <!-- Remove Button -->
+                          <q-btn color="negative" flat round dense icon="o_close" class="remove-file-icon" @click="removeFile(index)" />
+                        </div>
+                      </div>
+                    </div>
+                  </fieldset>
+                  <fieldset v-if="!isFileUploadOrExternal" class="q-mt-lg">
+                    <legend>Document Reference List</legend>
+                    <div class="flex items-center justify-end q-mb-md">
+                      <q-btn color="primary" icon="o_add" label="Add" no-caps @click="onAddDocumentReference" />
+                    </div>
+                    <q-table
+                      ref="tableRef"
+                      v-model:pagination="pagination"
+                      bordered
+                      class="no-shadow"
+                      :loading="loading"
+                      :rows="fileRows"
+                      :columns="documentReferenceColumns"
+                      row-key="id"
+                      separator="cell"
+                      no-data-label="No data available"
+                      binary-state-sort
+                    >
+                      <template #header="props">
+                        <q-tr :props="props" class="bg-primary text-white">
+                          <q-th
+                            v-for="col in props.cols"
+                            :key="col.name" :props="props"
+                          >
+                            {{ col.label }}
+                            <span v-if="['externalFilePath','externalFileName'].includes(col.name)" class="required">*</span>
+                          </q-th>
+                          <q-th auto-width class="text-center">Actions</q-th>
+                        </q-tr>
+                      </template>
+                      <template #top-row>
+                        <q-tr v-if="mode == 'addDocumentReference'" class="row-highlight">
+                          <q-td>
+                            <div>
+                              <q-input
+                                v-model="editingRow.externalFilePath"
+                                outlined
+                                stack-label
+                                hide-bottom-space
+                                :dense="true"
+                                :error="editingRowV$.externalFilePath.$error"
+                                :error-message="editingRowV$.externalFilePath.$errors[0]?.$message"
+                                @blur="editingRowV$.externalFilePath.$touch"
+                              />
+                            </div>
+                          </q-td>
+                          <q-td>
+                            <div>
+                              <q-input
+                                v-model="editingRow.externalFileName"
+                                outlined
+                                stack-label
+                                hide-bottom-space
+                                :dense="true"
+                                :error="editingRowV$.externalFileName.$error"
+                                :error-message="editingRowV$.externalFileName.$errors[0]?.$message"
+                                @blur="editingRowV$.externalFileName.$touch"
+                              />
+                            </div>
+                          </q-td>
+                          <q-td style="width: 350px;">
+                            <div>
+                              <q-input
+                                v-model="editingRow.externalFileDescription"
+                                outlined
+                                stack-label
+                                type="textarea"
+                                hide-bottom-space
+                                :dense="true"
+                                maxlength="500"
+                              />
+                            </div>
+                          </q-td>
+                          <q-td auto-width class="text-center">
+                            <q-icon name="o_save" size="xs" class="cursor-pointer q-mr-lg" @click="onFilePathSave()">
+                              <q-tooltip>Save</q-tooltip>
+                            </q-icon>
+                            <q-icon name="o_cancel" size="xs" color="red" class="cursor-pointer" @click="onFilePathCancel">
+                              <q-tooltip>Cancel</q-tooltip>
+                            </q-icon>
+                          </q-td>
+                        </q-tr>
+                      </template>
+                      <template #body="props">
+                        <q-tr :props="props" :class="activeRowId == props.row.id ? 'highlight' : ''">
+                          <q-td class="text-left" style="width: 40%;">
+                            <span
+                              :class="props.row.deleted ? 'text-delete' : ''"
+                              style="white-space: normal; word-break: break-word;"
+                            >
+                              <a :href="props.row.externalFilePath" target="_blank" class="text-blue">
+                                {{ getFileNameFromPath(props.row.externalFilePath) || props.row.externalFileName}}
+                              </a>
+                            </span>
+                          </q-td>
+                          <q-td class="text-left" style="width: 25%;">
+                            <span
+                              :class="props.row.deleted ? 'text-delete' : ''"
+                              style="white-space: normal; word-break: break-word;"
+                            >
+                              {{ props.row.externalFileName }}
+                            </span>
+                          </q-td>
+                          <q-td class="text-left">
+                            <span
+                              :class="props.row.deleted ? 'text-delete' : ''"
+                              style="display: block; overflow-wrap: break-word; word-wrap: break-word; white-space: normal;"
+                              v-safe-html="props.row.externalFileDescription"
+                            />
+                          </q-td>
+                          <q-td auto-width class="text-center">
+                            <q-icon v-if="!props.row.deleted" name="o_delete_outline" color="red" size="xs" class="cursor-pointer" @click="onDeleteDocumentReference(props.row)">
+                              <q-tooltip>Delete</q-tooltip>
+                            </q-icon>
+                            <q-icon v-if="props.row.deleted" name="o_redo" size="xs" class="cursor-pointer q-ml-sm" @click="onFilePathUndo(props.row)">
+                              <q-tooltip>Undo</q-tooltip>
+                            </q-icon>
+                          </q-td>
+                        </q-tr>
+                      </template>
+                    </q-table>
+                  </fieldset>
+                  <div align="center" class="q-gutter-sm justify-center q-mt-md">
+                    <q-btn color="grey-4" push outline label="Close" type="button" class="text-grey-9 actionBtn" no-caps @click="confirmProjectClose" />
+                    <q-btn v-if="tab === '1_tab'" label="Save & Next" type="submit" color="primary" class="actionBtn" :loading="processing" :disable="processing" no-caps />
+                    <q-btn label="Save & Close" type="button" color="primary" class="actionBtn hidden" :loading="processingClose" :disable="processingClose" no-caps @click="onSubmitClose()" />
+                  </div>
+                </q-tab-panel>
+                <q-tab-panel name="2_tab">
+                  <fieldset class="q-mb-lg">
+                    <div>
+                      <div class="flex items-center justify-end q-mb-md">
+                        <q-btn color="primary" icon="o_add" label="Add" no-caps @click="onAddProjectCharter" />
+                      </div>
+                      <q-table
+                        ref="tableRef"
+                        v-model:pagination="pagination"
+                        bordered
+                        class="no-shadow"
+                        virtual-scroll
+                        :loading="loading"
+                        :rows="rows"
+                        :columns="columns"
+                        row-key="id"
+                        separator="cell"
+                        binary-state-sort
+                        :rows-per-page-options="[20, 50, 100, 200, 500]"
+                      >
+                        <template #header="props">
+                          <q-tr :props="props" class="bg-primary text-white">
+                            <q-th
+                              v-for="col in props.cols"
+                              :key="col.name"
+                              :props="props"
+                            >
+                              {{ col.label }}
+                              <q-icon v-if="col.tooltip" name="o_info" size="xs" class="q-mx-xs">
+                                <q-tooltip class="text-caption">
+                                  {{ col.tooltip }}
+                                </q-tooltip>
+                              </q-icon>
+                              <span v-if="['employeeId', 'siteProjectRoleIds', 'productivityFactor'].includes(col.name)" class="required">*</span>
+                            </q-th>
+                            <q-th auto-width class="text-center">Actions</q-th>
+                          </q-tr>
+                        </template>
+                        <template #body="props">
+                          <q-tr :class="props.row.deleted ? 'hidden' : ''">
+                            <q-td width="30%">
+                              <formSingleSelectDropdown
+                                v-model="props.row.employeeId"
+                                :options="getEmployeeOptionsForRow(props.row)"
+                                :filter="activeEmployeesDropdownSingleSelect.filter"
+                                :error="rowValidations[props.rowIndex]?.value?.employeeId.$error"
+                                :errorMessage="rowValidations[props.rowIndex]?.value?.employeeId.$errors[0]?.$message"
+                              />
+                            </q-td>
+                            <q-td width="31%">
+                              <formMultiSelectDropdown
+                                v-model="props.row.siteProjectRoleIds"
+                                required
+                                :options="projectRoleOptions"
+                                :error="rowValidations[props.rowIndex]?.value?.siteProjectRoleIds.$error"
+                                :error-message="rowValidations[props.rowIndex]?.value?.siteProjectRoleIds.$errors[0]?.$message"
+                                :onBlur="() => rowValidations[props.rowIndex]?.value?.siteProjectRoleIds.$touch()"
+                                popup-content-class="customPopupContentClass"
+                                :clear-search-on-select="true"
+                                :show-role-access="true"
+                                @update:model-value="updateRowAccess(props.row)"
+                              />
+                            </q-td>
+                            <q-td style="width: 10%; white-space: normal; overflow-wrap: break-word;">
+                              <q-input
+                                v-model="props.row.productivityFactor"
+                                outlined
+                                stack-label
+                                hide-bottom-space
+                                dense
+                                :rules="[validateFactor]"
+                                maxlength="5"
+                                :input-class="'text-right'"
+                                :error="rowValidations[props.rowIndex]?.value?.productivityFactor.$error"
+                                :error-message="rowValidations[props.rowIndex]?.value?.productivityFactor.$errors[0]?.$message"
+                              />
+                            </q-td>
+                            <td class="text-center" style="width: 8%; vertical-align: middle;">
+                              <q-checkbox v-model="props.row.fullAccess" color="primary" disable />
+                            </td>
+                            <td class="text-center" style="width: 8%; vertical-align: middle;">
+                              <q-checkbox v-model="props.row.viewOnly" color="primary" disable />
+                            </td>
+                            <td class="text-center" style="width: 8%; vertical-align: middle;">
+                              <q-checkbox v-model="props.row.notes" color="primary" disable />
+                            </td>
+                            <q-td class="text-center" style="width: 5%;">
+                             <q-icon
+                                name="o_delete"
+                                size="xs"
+                                class="cursor-pointer text-red"
+                                @click="onDeleteProjectCharter(props.row)"
+                              >
+                                <q-tooltip>
+                                  Delete
+                                </q-tooltip>
+                              </q-icon>
+                            </q-td>
+                          </q-tr>
+                        </template>
+                      </q-table>
+                    </div>
+                    <div align="center" class="q-gutter-sm justify-center q-mt-md">
+                      <q-btn color="grey-4" push outline label="Close" type="button" class="text-grey-9 actionBtn" no-caps @click="confirmProjectClose" />
+                      <q-btn v-if="tab === '1_tab'" label="Save & Next" type="submit" color="primary" class="actionBtn" :loading="processing" :disable="processing" no-caps />
+                      <q-btn label="Save & Close" type="button" color="primary" class="actionBtn" :loading="processing" :disable="processing" no-caps @click="onSubmitClose()" />
+                    </div>
+                  </fieldset>
+                </q-tab-panel>
+              </q-tab-panels>
+            </q-card>
+          </div>
+        </div>
+      </q-form>
+    </q-card>
+  </q-dialog>
+</template>
+
+<script setup>
+// Import libraries
+import _ from "lodash";
+import { useAuthStore } from "stores/auth";
+import { isDate } from "validators/zw_validators.js";
+import { zwConfirm, zwConfirmDelete, notifySuccess, notifyError, notifyWarning } from "assets/utils";
+import { ref, watch, computed, onMounted, toRaw } from "vue";
+import { useQuasar, useDialogPluginComponent, uid } from "quasar";
+import { required, helpers, minLength, maxLength } from "@vuelidate/validators";
+import useVuelidate from "@vuelidate/core";
+import { format } from "date-fns"; // Standard TimeZone Conversion
+
+import commonService from "services/common.service";
+import projectService from "modules/project/projects.service";
+
+// SOP Change :- Shared Dropdowns
+import projectModule from "src/modules/project/utils/dropdowns.js";
+import employeeModule from "src/modules/employee/utils/dropdowns.js";
+import customerModule from "src/modules/customer/utils/dropdowns.js";
+import companyContactsModule from "src/modules/company-contacts/utils/dropdowns.js";
+import { getEditorConfig } from "src/composables/form-inputs/useEditorSettings.js";
+
+// Shared Inputs
+import multiFileUploader from "src/components/form-inputs/_multiFileUpload.vue";
+// SOP Change :- Shared Inputs
+import formSingleSelectDropdown from "src/components/form-inputs/_formSingleSelectDropdown.vue";
+import formMultiSelectDropdown from "src/components/form-inputs/_formMultiSelectDropdown.vue";
+import formDate from "src/components/form-inputs/_formDate.vue";
+
+const $q = useQuasar();
+const { fonts, toolbar } = getEditorConfig($q);
+const authStore = useAuthStore();
+const user = authStore.user;
+const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent();
+defineEmits([...useDialogPluginComponent.emits]);
+
+// Props values i.e. come from query string
+const props = defineProps({ id: { type: String, default: "" }, isCharter: { type: Boolean, default: false } });
+
+// Common variables
+const tab = ref(props.isCharter ? "2_tab" : "1_tab");
+const loading = ref(true);
+const processing = ref(false);
+const activeRowId = ref(null);
+const processingClose = ref(false);
+const isFilesValid = ref(true);
+const mode = ref(null);
+const editingRow = ref(null);
+const isFileUploadOrExternal = user.isFileUploadOrExternal;
+
+const defaultRoles = [
+  "Project Manager",
+  "Project Coordinator",
+  "Project Lead"
+];
+const allSiteProjectRoles = ref([]);
+
+const rows = ref([]);
+const rowCounter = ref(0);
+const pagination = ref({ sortBy: "", descending: false, rowsPerPage: 20, page: 1 });
+const columns = ref([
+  {
+    name: "employeeId",
+    label: "Employee Name",
+    field: "employee.person.fullName",
+    align: "left",
+    sortable: true
+  },
+  {
+    name: "siteProjectRoleIds",
+    label: "Role",
+    field: "siteProjectRoleIds",
+    align: "left"
+  },
+  {
+    name: "productivityFactor",
+    label: "Productivity Factor",
+    field: "productivityFactor",
+    align: "right",
+    sortable: true
+  },
+  {
+    name: "fullAccess",
+    label: "Manage",
+    field: "fullAccess",
+    tooltip: "Manage all project-related data."
+  },
+  {
+    name: "viewOnly",
+    label: "View",
+    field: "viewOnly",
+    tooltip: "View all project-related data."
+  },
+  {
+    name: "notes",
+    label: "Notes",
+    field: "notes",
+    tooltip: "Manage project-related notes."
+  }
+]);
+
+const fileRows = ref([]);
+const documentReferenceColumns = ref([
+  { name: "externalFilePath", label: "File Path", field: "externalFilePath", align: "left", sortable: true },
+  { name: "externalFileName", label: "File Name", field: "externalFileName", align: "left", sortable: true },
+  { name: "externalFileDescription", label: "File Description", field: "externalFileDescription", align: "left", sortable: true }
+]);
+
+// Define model values
+const model = ref({
+  id: "",
+  name: "",
+  projectStatusId: "",
+  startDateStr: format(new Date(), "MM/dd/yyyy"),
+  goLiveDateStr: "",
+  description: "",
+  active: true,
+  isArchived: false,
+  employeeId: null,
+  projectFiles: [],
+  projectFileFlag: "edit"
+});
+
+// Project Info - Validation Rules
+const rules = {
+  name: { required: helpers.withMessage("Project name is required", required), minLength: minLength(1), maxLength: maxLength(100) },
+  startDateStr: {
+    isDate: helpers.withMessage("Date is invalid", isDate),
+    required: helpers.withMessage("Start date is required", required)
+  },
+  goLiveDateStr: {
+    isDate: helpers.withMessage("Date is invalid", isDate),
+    afterStartDate: helpers.withMessage("End date must occur after the start date", (value, { startDateStr }) => {
+      if (!value) return true;
+      return new Date(value) >= new Date(startDateStr);
+    })
+  },
+  projectStatusId: { required: helpers.withMessage("Project status is required", required) },
+  projectPriorityId: { required: helpers.withMessage("Project priority is required", required) },
+  projectTypeId: { required: helpers.withMessage("Project type is required", required) },
+  planApproverId: { required: helpers.withMessage("Project Approver is required", required) },
+  customerId: { required: helpers.withMessage("Customer status is required", required) },
+  companyContactId: { required: helpers.withMessage("Contact is required", required) }
+};
+
+// Project Charter - Multiple row validation
+const rowValidations = ref([]);
+function isValidProductivityFactor (value) {
+  if (typeof value !== "string" && typeof value !== "number") return false;
+  const str = String(value).trim();
+
+  // Reject if contains anything other than digits or one dot
+  if (!/^\d*\.?\d+$/.test(str)) return false;
+
+  const num = parseFloat(str);
+  return !isNaN(num) && num >= 0 && num <= 1;
+}
+
+function validateFactor (value) {
+  if (value != null && value !== undefined && String(value).trim() !== "") {
+    return isValidProductivityFactor(value) || "Productivity Factor must be a number between 0 and 1";
+  }
+}
+
+const betweenZeroAndOne = helpers.withMessage(
+  "Productivity Factor must be a number between 0 and 1",
+  isValidProductivityFactor
+);
+
+const rowRules = {
+  employeeId: { required: helpers.withMessage("Employee name is required", required) },
+  siteProjectRoleIds: { required: helpers.withMessage("Role is required", required) },
+  productivityFactor: { required: helpers.withMessage("Productivity Factor is required", required), betweenZeroAndOne }
+};
+
+function getRoleAccess(role) {
+  if (!role) {
+    return {
+      fullAccess: false,
+      viewOnly: false,
+      notes: false
+    };
+  }
+
+  // Permissions can come from different structures
+  const permissions =
+    role.data ||
+    role.sitesProjectRolesPermissions ||
+    role.sitesProjectRoles?.sitesProjectRolesPermissions ||
+    [];
+
+  const permissionList = Array.isArray(permissions)
+    ? permissions
+    : [permissions];
+
+  return {
+    fullAccess: permissionList.some(p => p?.fullAccess === true),
+    viewOnly: permissionList.some(p => p?.viewOnly === true),
+    notes: permissionList.some(p => p?.notes === true)
+  };
+}
+
+function updateRowAccess(row) {
+  let roleIds = Array.isArray(row.siteProjectRoleIds)
+    ? [...row.siteProjectRoleIds]
+    : [];
+
+  let selectedRoles = roleIds
+    .map(roleId =>
+      allSiteProjectRoles.value.find(
+        role => String(role.value) === String(roleId)
+      )
+    )
+    .filter(Boolean);
+
+  // ---------------------------------------------------------
+  // Project Manager can be assigned to only one employee
+  // ---------------------------------------------------------
+  const isProjectManagerSelected = selectedRoles.some((role) => {
+    const roleName =
+      role?.roleName ||
+      role?.text ||
+      role?.name ||
+      role?.masterProjectRoles?.name ||
+      role?.masterProjectRoles?.text;
+
+    return roleName?.trim().toLowerCase() === "project manager";
+  });
+
+  if (isProjectManagerSelected) {
+    const anotherProjectManager = rows.value.find(otherRow => {
+      if (otherRow === row || otherRow.deleted) {
+        return false;
+      }
+
+      const otherRoleIds = Array.isArray(otherRow.siteProjectRoleIds)
+        ? otherRow.siteProjectRoleIds
+        : [];
+
+      return otherRoleIds.some(roleId => {
+        const role = allSiteProjectRoles.value.find(
+          item => String(item.value) === String(roleId)
+        );
+
+        const roleName =
+          role?.roleName ||
+          role?.text ||
+          role?.name ||
+          role?.masterProjectRoles?.name ||
+          role?.masterProjectRoles?.text;
+
+        return roleName?.trim().toLowerCase() === "project manager";
+      });
+    });
+
+    if (anotherProjectManager) {
+      // Remove Project Manager from current row
+      roleIds = roleIds.filter(roleId => {
+        const role = allSiteProjectRoles.value.find(
+          item => String(item.value) === String(roleId)
+        );
+
+        const roleName =
+          role?.roleName ||
+          role?.text ||
+          role?.name ||
+          role?.masterProjectRoles?.name ||
+          role?.masterProjectRoles?.text;
+
+        return roleName?.trim().toLowerCase() !== "project manager";
+      });
+
+      row.siteProjectRoleIds = roleIds;
+
+      notifyError({
+        message: "Project Manager role is already assigned to another employee."
+      });
+
+      // Rebuild selected roles after removing PM
+      selectedRoles = roleIds
+        .map(roleId =>
+          allSiteProjectRoles.value.find(
+            role => String(role.value) === String(roleId)
+          )
+        )
+        .filter(Boolean);
+    }
+
+    // If there is already a PM on another row, PM is not allowed
+    // on this row.
+  }
+
+  // ---------------------------------------------------------
+  // Calculate effective permissions
+  // ---------------------------------------------------------
+  let fullAccess = false;
+  let viewOnly = false;
+  let notes = false;
+
+  selectedRoles.forEach(role => {
+    const access = getRoleAccess(role);
+
+    if (access.fullAccess) {
+      fullAccess = true;
+    }
+
+    if (access.viewOnly) {
+      viewOnly = true;
+    }
+
+    if (access.notes) {
+      notes = true;
+    }
+  });
+
+  // Full Access has highest priority.
+  // If Full Access is available, View and Notes are not required.
+  if (fullAccess) {
+    viewOnly = false;
+    notes = false;
+  }
+
+  row.fullAccess = fullAccess;
+  row.viewOnly = viewOnly;
+  row.notes = notes;
+
+  row.roles = selectedRoles;
+
+  row.roleNames = selectedRoles
+    .map(role =>
+      role.text ||
+      role.roleName ||
+      role.name ||
+      role.masterProjectRoles?.name
+    )
+    .filter(Boolean);
+}
+// const canManageDelegateRole = ref(false);
+
+const canAssignDelegateRole = computed(() => {
+  const currentUserEmployeeId = String(user.employeeId || "");
+
+  const currentUserRow = rows.value.find(
+    row =>
+      !row.deleted &&
+      String(row.employeeId) === currentUserEmployeeId
+  );
+
+  if (!currentUserRow) {
+    return false;
+  }
+
+  return (currentUserRow.siteProjectRoleIds || []).some(roleId => {
+    const role = siteProjectRolesDropdown.list.value.find(
+      item => String(item.value) === String(roleId)
+    );
+
+    const roleName = (
+      role?.text ||
+      role?.label ||
+      role?.name ||
+      ""
+    ).trim().toLowerCase();
+
+    return (
+      roleName === "project manager" ||
+      roleName === "project coordinator"
+    );
+  });
+});
+
+const projectRoleOptions = computed(() => {
+  return siteProjectRolesDropdown.list.value.map(role => {
+    const roleName = (role.text || role.label || role.name || "")
+      .trim()
+      .toLowerCase();
+
+    return {
+      ...role,
+      disable:
+        roleName === "delegate" &&
+        !canAssignDelegateRole.value
+    };
+  });
+});
+
+function validateDuplicateEmployees() {
+  const employeeRows = rows.value.filter(
+    row => !row.deleted && row.employeeId !== null && row.employeeId !== undefined && row.employeeId !== ""
+  );
+
+  const employeeMap = new Map();
+
+  employeeRows.forEach((row, index) => {
+    const employeeId = String(row.employeeId).trim();
+
+    if (!employeeMap.has(employeeId)) {
+      employeeMap.set(employeeId, []);
+    }
+
+    employeeMap.get(employeeId).push({
+      row,
+      rowNumber: index + 1
+    });
+  });
+
+  const duplicateGroups = [...employeeMap.values()].filter(
+    group => group.length > 1
+  );
+
+  if (duplicateGroups.length === 0) {
+    return true;
+  }
+
+  const duplicateEmployees = duplicateGroups
+    .map(group => {
+      const employee = group[0].row;
+
+      return (
+        employee.employee?.person?.fullName ||
+        employee.employee?.person?.name ||
+        employee.person?.fullName ||
+        `Employee ID: ${employee.employeeId}`
+      );
+    })
+    .join(", ");
+
+  notifyError({
+    message: `The following employee(s) are added more than once: ${duplicateEmployees}. Please remove the duplicate employee before saving.`
+  });
+
+  return false;
+}
+
+function validateSingleProjectManager() {
+  const activeRows = rows.value.filter(row => !row.deleted);
+
+  let projectManagerCount = 0;
+
+  activeRows.forEach(row => {
+    const roleIds = Array.isArray(row.siteProjectRoleIds)
+      ? row.siteProjectRoleIds
+      : [];
+
+    const hasProjectManager = roleIds.some(roleId => {
+      const role = allSiteProjectRoles.value.find(
+        item => String(item.value) === String(roleId)
+      );
+
+      const roleName =
+        role?.roleName ||
+        role?.text ||
+        role?.name ||
+        role?.masterProjectRoles?.name ||
+        role?.masterProjectRoles?.text;
+
+      return roleName?.trim().toLowerCase() === "project manager";
+    });
+
+    if (hasProjectManager) {
+      projectManagerCount++;
+    }
+  });
+
+  if (projectManagerCount > 1) {
+    notifyError({
+      message: "Only one employee can be assigned the Project Manager role."
+    });
+
+    return false;
+  }
+
+  return true;
+}
+
+function getEmployeeOptionsForRow(currentRow) {
+  const selectedEmployeeIds = new Set(
+    rows.value
+      .filter(row => !row.deleted && row !== currentRow && row.employeeId)
+      .map(row => String(row.employeeId))
+  );
+
+  return activeEmployeesDropdownSingleSelect.list.value.map(employee => ({
+    ...employee,
+    disable: selectedEmployeeIds.has(String(employee.value))
+  }));
+}
+
+function validateMandatoryProjectRoles() {
+  const activeRows = rows.value.filter(row => !row.deleted);
+
+  const assignedRoleNames = new Set();
+
+  activeRows.forEach(row => {
+    const selectedRoles = Array.isArray(row.roles)
+      ? row.roles
+      : [];
+
+    selectedRoles.forEach(role => {
+      const roleName =
+        role.roleName ||
+        role.text ||
+        role.name ||
+        role.masterProjectRoles?.name ||
+        role.masterProjectRoles?.text;
+
+      if (roleName) {
+        assignedRoleNames.add(roleName.trim().toLowerCase());
+      }
+    });
+
+    // Also check roleIds against the dropdown.
+    const roleIds = Array.isArray(row.siteProjectRoleIds)
+      ? row.siteProjectRoleIds
+      : [];
+
+    roleIds.forEach(roleId => {
+      const dropdownRole = siteProjectRolesDropdown.list.value.find(
+        item => String(item.value) === String(roleId)
+      );
+
+      if (dropdownRole?.text) {
+        assignedRoleNames.add(dropdownRole.text.trim().toLowerCase());
+      }
+    });
+  });
+
+  const missingRoles = defaultRoles.filter(
+    role => !assignedRoleNames.has(role.toLowerCase())
+  );
+  if (missingRoles.length > 0) {
+    notifyError({
+      message: `Please assign: ${missingRoles.join(", ")}.`
+    });
+
+    return false;
+  }
+
+  return true;
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+// Document Reference List - Validation Rules
+// ----------------------------------------------------------------------------------------------------------------
+
+const editingRowrules = {
+  externalFilePath: { required: helpers.withMessage("File Path is required", required) },
+  externalFileName: { required: helpers.withMessage("File Name is required", required) }
+};
+
+const editingRowV$ = useVuelidate(editingRowrules, editingRow, { $lazy: true, $autoDirty: true });
+
+let projectId = props.id;
+let disableTab = true;
+if (projectId) {
+  disableTab = false;
+}
+
+const getProject = (projectId) => {
+  loading.value = true;
+
+  projectService.getProject(projectId).then((resp) => {
+    model.value = _.cloneDeep(resp);
+
+    companyContactDropdownSingleSelect.load(resp.customerId);
+    projectSubCategoryDropdownSingleSelect.load(resp.projectCategoryId);
+    activeEmployeesDropdownSingleSelect.load(user.siteId);
+
+    setTimeout(() => {
+      getDescriptionBySubCategoryId(
+        resp.projectCategoryId,
+        resp.projectSubcategoryId
+      );
+    }, 200);
+
+    model.value.startDateStr = resp.startDate
+      ? format(resp.startDate, "MM/dd/yyyy")
+      : "";
+
+    model.value.description = resp.description
+      ? resp.description
+      : "";
+
+    model.value.goLiveDateStr = resp.goLiveDate
+      ? format(resp.goLiveDate, "MM/dd/yyyy")
+      : "";
+
+    model.value.projectFiles = resp.projectFileList || [];
+
+    let counter = rowCounter.value;
+
+    rows.value = (resp.projectEmployeeMappings || []).map((item) => {
+      const roles = item.projectEmployeeRoleMappings || [];
+
+      const mappedRoles = roles
+        .filter(role => role?.sitesProjectRoles)
+        .map(role => {
+          const siteProjectRole = role.sitesProjectRoles;
+
+          const roleName =
+            siteProjectRole?.masterProjectRoles?.name || "";
+
+          const permissions =
+            siteProjectRole?.sitesProjectRolesPermissions || [];
+
+          // ---------------------------------------------------------
+          // Role-level permissions
+          // Full Access has highest priority
+          // ---------------------------------------------------------
+          const fullAccess = permissions.some(
+            permission => permission.fullAccess === true
+          );
+
+          const viewOnly = !fullAccess && permissions.some(
+            permission => permission.viewOnly === true
+          );
+
+          const notes = !fullAccess && permissions.some(
+            permission => permission.notes === true
+          );
+
+          return {
+            id: role.id,
+            siteProjectRoleId: siteProjectRole.id,
+            roleName,
+            fullAccess,
+            viewOnly,
+            notes
+          };
+        });
+
+      const roleIds = mappedRoles
+        .map(role => role.siteProjectRoleId)
+        .filter(Boolean);
+
+      // ---------------------------------------------------------
+      // Effective permissions across all assigned roles
+      // Full Access has highest priority
+      // ---------------------------------------------------------
+      const fullAccess = mappedRoles.some(
+        role => role.fullAccess === true
+      );
+
+      const viewOnly = !fullAccess && mappedRoles.some(
+        role => role.viewOnly === true
+      );
+
+      const notes = !fullAccess && mappedRoles.some(
+        role => role.notes === true
+      );
+
+      const row = {
+        ...item,
+
+        rowCounter: ++counter,
+        productivityFactor: item.productivityFactor ?? 0,
+        editing: false,
+        flag: "Edit",
+
+        // Multiple roles
+        siteProjectRoleIds: roleIds,
+
+        // Detailed roles
+        roles: mappedRoles,
+
+        // Role names
+        roleNames: mappedRoles
+          .map(role => role.roleName)
+          .filter(Boolean),
+
+        // Effective permissions
+        fullAccess,
+        viewOnly,
+        notes
+      };
+
+      return row;
+    });
+
+    fileRows.value = resp.projectFileList
+    .filter(item => {
+      if (!isFileUploadOrExternal) {
+        return !(item.file?.mimeType && item.file?.seoFilename);
+      }
+      return true;
+    })
+    .map(item => ({
+      ...item.file,
+      editing: false,
+      flag: "Edit"
+    }));
+    rowCounter.value = counter;
+
+    syncRowValidations();
+  }).finally(() => {
+    loading.value = false;
+  });
+};
+
+function handlePopupShow (statusLabel) {
+  getAllProjectStatusDropdown("Project Status", statusLabel);
+}
+
+function getContactByCustomerId (customerId) {
+  model.value.companyContactId = "";
+    companyContactDropdownSingleSelect.load(customerId);
+}
+
+function getSubCategoriesByCategoryId (projectCategoryId) {
+  model.value.projectSubcategoryId = "";
+  model.value.subCtgDescription = "";
+    projectSubCategoryDropdownSingleSelect.load(projectCategoryId);
+}
+
+async function getDescriptionBySubCategoryId (projectCategoryId, projectSubcategoryId) {
+  if (!projectSubCategoryDropdownSingleSelect.list.value.length) {
+    await projectSubCategoryDropdownSingleSelect.load(projectCategoryId);
+  }
+  const found = projectSubCategoryDropdownSingleSelect.list.value.find(item => item.value === projectSubcategoryId);
+  model.value.subCtgDescription = found?.data || "";
+}
+
+function syncRowValidations () {
+  rowValidations.value = rows.value.map(row =>
+    !row.deleted ? useVuelidate(rowRules, row, { $lazy: true, $autoDirty: true }) : null
+  );
+}
+
+function onAddProjectCharter() {
+  const currentCounter = ++rowCounter.value;
+
+  rows.value.unshift({
+    id: uid(),
+    employeeId: "",
+    siteProjectRoleIds: [],
+    productivityFactor: 0,
+    deleted: false,
+    rowCounter: currentCounter,
+    fullAccess: false,
+    viewOnly: false,
+    notes: false,
+    roles: [],
+    roleNames: []
+  });
+
+  syncRowValidations();
+}
+
+function onAddDocumentReference () {
+  mode.value = "addDocumentReference";
+  editingRow.value = {
+    externalFilePath: "",
+    externalFileName: "",
+    externalFileDescription: ""
+  };
+  activeRowId.value = null;
+}
+
+const onDeleteProjectCharter = (row) => {
+  zwConfirmDelete(
+    { data: "This Employee's project access will be removed as well." },
+    () => {
+      const activeRows = rows.value.filter(r => !r.deleted);
+
+      if (activeRows.length > 1) {
+        row.deleted = true;
+      } else {
+        notifyError({ message: "Please add at least one row." });
+      }
+    }
+  );
+};
+
+function onDeleteDocumentReference (item) {
+  item.deleted = true;
+  const rowIndex = fileRows.value.findIndex((row) => row.id === item.id);
+  if (rowIndex !== -1) {
+    fileRows.value.splice(rowIndex, 1, {
+      ...fileRows.value[rowIndex],
+      id: item.id,
+      externalFileName: item.externalFileName,
+      externalFilePath: item.externalFilePath,
+      externalFileDescription: item.externalFileDescription,
+      flag: "Delete"
+    });
+  }
+  activeRowId.value = item.id;
+}
+
+function onFilePathCancel () {
+  mode.value = null;
+  editingRow.value = null;
+  activeRowId.value = null;
+}
+
+function onFilePathUndo (item) {
+  item.deleted = false;
+  activeRowId.value = null;
+}
+
+async function onFilePathSave () {
+  if (mode.value === "addDocumentReference") {
+    if (!await editingRowV$.value.$validate()) {
+      return;
+    }
+    // check duplicate row
+    let isDuplicate = 0;
+    fileRows.value.forEach((item, index) => {
+      if (item.externalFileName.toLowerCase() === editingRow.value.externalFileName.toLowerCase()) {
+        isDuplicate = 1;
+      }
+    });
+    if (isDuplicate === 0) {
+      const newRow = {
+        id: uid(),
+        externalFileName: editingRow.value.externalFileName,
+        externalFilePath: editingRow.value.externalFilePath,
+        externalFileDescription: editingRow.value.externalFileDescription,
+        flag: "New"
+      };
+      fileRows.value.unshift(newRow);
+      mode.value = null;
+      activeRowId.value = null;
+    } else {
+      notifyError({ message: "Duplicate File Name." });
+    }
+  }
+}
+
+function disableProjectDatesBeforeStartDate (date) {
+  // If no Start Date is set, allow all dates
+  if (!model.value.startDateStr) {
+    return true;
+  }
+  const start = new Date(model.value.startDateStr);
+  const current = new Date(date);
+
+  // Disable dates before the Start Date
+  return current >= start;
+}
+
+const confirmProjectClose = () => {
+  // New project: close directly without confirmation
+  if (!props.id && !projectId) {
+    onDialogCancel();
+    return;
+  }
+
+  const activeRows = rows.value.filter(row => !row.deleted);
+
+  const assignedRoleNames = new Set();
+
+  activeRows.forEach(row => {
+    // Check roles already mapped on the row
+    const selectedRoles = Array.isArray(row.roles)
+      ? row.roles
+      : [];
+
+    selectedRoles.forEach(role => {
+      const roleName =
+        role.roleName ||
+        role.text ||
+        role.name ||
+        role.masterProjectRoles?.name ||
+        role.masterProjectRoles?.text;
+
+      if (roleName) {
+        assignedRoleNames.add(roleName.trim().toLowerCase());
+      }
+    });
+
+    // Also check selected role IDs against dropdown
+    const roleIds = Array.isArray(row.siteProjectRoleIds)
+      ? row.siteProjectRoleIds
+      : [];
+
+    roleIds.forEach(roleId => {
+      const dropdownRole = siteProjectRolesDropdown.list.value.find(
+        item => String(item.value) === String(roleId)
+      );
+
+      if (dropdownRole?.text) {
+        assignedRoleNames.add(
+          dropdownRole.text.trim().toLowerCase()
+        );
+      }
+    });
+  });
+
+  const missingRoles = defaultRoles.filter(
+    role => !assignedRoleNames.has(role.toLowerCase())
+  );
+
+  // All mandatory roles are assigned → close directly
+  if (missingRoles.length === 0) {
+    onDialogCancel();
+    return;
+  }
+
+  // One or more mandatory roles are missing → confirmation popup
+  const formName = props.isCharter
+    ? "Project Charter"
+    : "Project";
+
+  zwConfirm({
+    title: "Confirmation",
+    message: `Please assign employees to the required Project Manager (PM), Project Coordinator (PC), and Project Lead (PL) roles, save the ${formName} form, and then close it.`,
+    cancel: false,
+    okLabel: "OK"
+  });
+};
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// On Save & Next or Save & Close
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+// Validate rules
+const v$ = useVuelidate(rules, model, { $lazy: true, $autoDirty: true });
+
+const validateProjectCharterRows = async () => {
+  rowValidations.value = rows.value.map(row =>
+    !row.deleted
+      ? useVuelidate(rowRules, row, { $lazy: true, $autoDirty: true })
+      : null
+  );
+
+  const invalidRows = [];
+
+  for (let i = 0; i < rowValidations.value.length; i++) {
+    const validation = rowValidations.value[i];
+    const row = rows.value[i];
+
+    if (!row.deleted && validation?.value) {
+      await validation.value.$touch();
+      const isRowValid = await validation.value.$validate();
+
+      if (!isRowValid) {
+        const errors = validation.value.$errors
+          .map(error => {
+            const fieldMessages = {
+              employeeId: "Employee Name",
+              siteProjectRoleIds: "Role",
+              productivityFactor: "Productivity Factor"
+            };
+
+            return fieldMessages[error.$property] || error.$property;
+          })
+          .filter((value, index, array) => array.indexOf(value) === index);
+
+        invalidRows.push({
+          index: i,
+          rowNumber: i + 1,
+          page: Math.ceil((i + 1) / pagination.value.rowsPerPage),
+          errors
+        });
+      }
+    }
+  }
+
+  if (invalidRows.length > 0) {
+    // Navigate to the first invalid row's page
+    const firstInvalidRow = invalidRows[0];
+
+    pagination.value.page = firstInvalidRow.page;
+
+    notifyError({
+      message: "Please complete the required fields in the Project Charter."
+    });
+    return false;
+  }
+  return true;
+};
+
+const onSubmitClose = () => {
+  onSubmit(1);
+};
+
+const onSubmit = async (isClose = 0) => {
+  if (isClose === 1) {
+    processingClose.value = true;
+    processing.value = false;
+  } else {
+    processing.value = true;
+  }
+  try {
+    const formData = new FormData();
+    let isValid = true;
+    if (isClose === 1 || props.isCharter) {
+      isValid = await validateProjectCharterRows();
+
+      if (!isValid) {
+        return;
+      }
+    }
+
+    if (tab.value === "2_tab" && !props.isCharter) {
+      const formValid = await v$.value.$validate();
+
+      if (!formValid) {
+        notifyError({
+          message: "Required fields are blank in Project Info. Tab."
+        });
+
+        tab.value = "1_tab"; // Navigate to Project Info tab
+        return;
+      }
+    }
+
+    if (props.isCharter || tab.value === "2_tab") {
+      if (!validateDuplicateEmployees()) {
+        return;
+      }
+
+      if (!validateSingleProjectManager()) {
+        return;
+      }
+
+      if (!validateMandatoryProjectRoles()) {
+        return;
+      }
+    }
+
+    if (!isFilesValid.value) {
+      notifyWarning({ message: "Please upload valid files" });
+      return;
+    }
+
+    if (mode.value === "addDocumentReference") {
+      const isValid = await editingRowV$.value.$validate();
+
+      if (isValid) {
+        notifyError({ message: "Please save document reference first." });
+      }
+
+      return;
+    }
+
+    const formValid = props.isCharter ? true : await v$.value.$validate();
+    if (formValid && isValid) {
+      if (tab.value === "2_tab" && rows.value.length === 0) {
+        notifyError({ message: "Add at least one employee in project." });
+        return;
+      }
+      if (isClose === 1) {
+        processingClose.value = true;
+      } else {
+        processing.value = true;
+      }
+      if (!props.isCharter) {
+        // Append other fields
+        formData.append("companyContactId", model.value.companyContactId);
+        formData.append("projectStatusId", model.value.projectStatusId);
+        formData.append("projectCategoryId", model.value.projectCategoryId ? model.value.projectCategoryId : "");
+        formData.append("projectSubcategoryId", model.value.projectSubcategoryId ? model.value.projectSubcategoryId : "");
+        formData.append("startDateStr", model.value.startDateStr);
+        formData.append("goLiveDateStr", model.value.goLiveDateStr);
+        formData.append("projectPriorityId", model.value.projectPriorityId);
+        formData.append("projectTypeId", model.value.projectTypeId);
+        formData.append("planApproverId", model.value.planApproverId);
+        formData.append("active", model.value.active);
+        formData.append("isArchived", model.value.isArchived);
+        formData.append("isTemplate", model.value.isTemplate ?? false);
+        formData.append("description", model.value.description);
+
+        toRaw(model.value.projectFiles || []).forEach((file) => {
+          if (file.file) {
+            // For existing files, append metadata instead of the file itself
+            formData.append("ExistingFiles", JSON.stringify({
+              id: file.id,
+              virtualPath: file.file.virtualPath
+            }));
+          } else {
+            // For new files, append as raw file objects (IFormFile)
+            formData.append("ProjectFiles", file);
+          }
+        });
+
+        // Also pass the projectFileFlag for general status tracking
+        formData.append("projectFileFlag", model.value.projectFileFlag || "no_change");
+      }
+
+      // model.value.filePathModelList = fileRows.value;
+      const filePathDetails = toRaw(fileRows.value || []);
+
+      filePathDetails.forEach((file, index) => {
+        formData.append(
+          `filePathModelList[${index}].id`,
+          file.id ?? ""
+        );
+
+        formData.append(
+          `filePathModelList[${index}].externalFilePath`,
+          file.externalFilePath ?? ""
+        );
+
+        formData.append(
+          `filePathModelList[${index}].externalFileDescription`,
+          file.externalFileDescription ?? ""
+        );
+
+        formData.append(
+          `filePathModelList[${index}].externalFileName`,
+          file.externalFileName ?? ""
+        );
+
+        formData.append(
+          `filePathModelList[${index}].flag`,
+          file.flag ?? ""
+        );
+      });
+
+      const isValidRow = (emp) => {
+        if (emp.deleted && emp.id === null) return false;
+        if (!emp) return false;
+
+        return true;
+      };
+
+      model.value.projectEmployeeMappings = rows.value
+        .filter(isValidRow)
+        .map(emp => ({ ...emp }));
+
+      formData.append("name", model.value.name);
+      formData.append("customerId", model.value.customerId);
+      formData.append("isCharter", props.isCharter);
+      formData.append("tab", tab.value);
+      model.value.projectEmployeeMappings.forEach((emp, index) => {
+        formData.append(`projectEmployeeMappings[${index}].id`, emp.id ?? uid());
+        formData.append(`projectEmployeeMappings[${index}].employeeId`, emp.employeeId ?? "");
+        formData.append(
+          `projectEmployeeMappings[${index}].productivityFactor`,
+          emp.deleted === true
+            ? 0
+            : parseFloat(emp.productivityFactor) || 0
+        );
+        const roleIds = Array.isArray(emp.siteProjectRoleIds)
+          ? emp.siteProjectRoleIds
+          : [];
+        roleIds.forEach(roleId => {
+          formData.append(
+            `projectEmployeeMappings[${index}].siteProjectRoleIds`,
+            roleId
+          );
+        });
+        formData.append(`projectEmployeeMappings[${index}].deleted`, emp.deleted ?? false);
+      });
+
+      projectService.saveProject(projectId, formData).then((resp) => {
+        notifySuccess({ message: "Project is saved successfully." });
+        if (tab.value === "2_tab" && rows.value.length === 0) {
+          notifyError({ message: "Add at least one role in project charter." });
+          return;
+        }
+        projectId = resp.id;
+        disableTab = false;
+         if (isClose === 1) {
+          getProject(projectId);
+          onDialogOK();
+        } else {
+          const currentTab = tab.value;
+          switch (currentTab) {
+          case "1_tab":
+            tab.value = "2_tab";
+            getProject(projectId);
+            break;
+          default:
+            break;
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error in submitting the project:", error);
+    notifyError({ message: "An error occurred while saving the project." });
+  } finally {
+    if (isClose === 1) {
+      processingClose.value = true;
+      processing.value = false;
+    } else {
+      processing.value = true;
+    }
+
+    setTimeout(() => {
+      processing.value = false;
+      processingClose.value = false;
+    }, 1500);
+  }
+};
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// Get All Dropdowns
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// Get all project status list
+const projectStatusList = ref([]);
+const projectStatusListOptions = ref([]);
+
+function getAllProjectStatusDropdown (typeName, currentStatusLabel = null) {
+  commonService.getDropDown(typeName).then((resp) => {
+    const allowedTransitions = {
+      New: ["Open", "On Hold", "Cancelled"],
+      Open: ["On Hold", "Cancelled"],
+      "In progress": ["On Hold", "Completed"],
+      "On Hold": ["Open", "Cancelled", "Completed"]
+    };
+
+    const responseData = resp.map((item) => {
+      const label = item.dropdownValue;
+      const isAllowed = allowedTransitions[currentStatusLabel]?.includes(label);
+      const shouldDisable = currentStatusLabel === "Cancelled" || currentStatusLabel === "Completed"
+        ? true
+        : currentStatusLabel
+          ? !isAllowed
+          : false;
+
+      return {
+        text: item.dropdownValue,
+        value: item.id,
+        disable: shouldDisable
+      };
+    });
+
+    const newActivityStatus = responseData.find(status => status.text.toLowerCase() === "new");
+    if (newActivityStatus && props.id === "") {
+      model.value.projectStatusId = newActivityStatus.value;
+    }
+
+    projectStatusListOptions.value = responseData;
+    projectStatusList.value = responseData;
+  });
+}
+
+function getProjectStatusListFilter (val, update, abort) {
+  update(() => {
+    const needle = val ? val.toLowerCase() : "";
+    if (needle === "") {
+      projectStatusList.value = projectStatusListOptions.value;
+    } else {
+      projectStatusList.value = projectStatusListOptions.value.filter(v => v.text.toLowerCase().includes(needle));
+    }
+  });
+}
+
+// -------------------------------------------------------------------------------------------------------
+// Upload Image
+// -------------------------------------------------------------------------------------------------------
+function handleFiles (files) {
+  model.value.projectFiles = files;
+  model.value.projectFileFlag = "edit";
+}
+
+function getFilePreview (file) {
+  return file && file instanceof File ? URL.createObjectURL(file) : "";
+}
+
+function getFileNameFromPath(filePath) {
+  if (!filePath) return "";
+
+  try {
+    const url = new URL(filePath);
+
+    const fileName = url.searchParams.get("file");
+
+    return fileName ? decodeURIComponent(fileName) : "";
+  } catch {
+    return "";
+  }
+}
+
+function isImageFile (file) {
+  if (file.file instanceof File) {
+    return file.file.type.startsWith("image/");
+  } else if (file.file && file.file.mimeType) {
+    return file.file.mimeType.startsWith("image/");
+  }
+  return false;
+}
+
+function viewFile (file) {
+  let fileUrl; // Declare fileUrl before using it
+
+  if (file?.file?.virtualPath) {
+    fileUrl = new URL(file.file.virtualPath).href; // For uploaded files
+  } else if (file?.file instanceof File) {
+    fileUrl = URL.createObjectURL(file.file); // For newly added files
+  } else if (file instanceof File) {
+    fileUrl = URL.createObjectURL(file); // Direct File object case
+  }
+
+  // const fileUrl = new URL(file, baseURL).href;
+  const fileExtension = fileUrl.split(".").pop().toLowerCase();
+  const supportedFormats = ["pdf", "docx", "xlsx", "pptx"];
+  const imageFormats = ["jpg", "jpeg", "png", "gif", "svg"];
+
+  let viewerUrl = fileUrl;
+
+  // Use Google Docs Viewer for Documents
+  if (supportedFormats.includes(fileExtension)) {
+    viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  }
+
+  // Open new window
+  const newWindow = window.open("", "_blank");
+
+  // Check if the popup is blocked
+  if (!newWindow) {
+    alert("Popup blocked! Please allow popups for this site.");
+    return;
+  }
+
+  // Delay to avoid null reference issues
+  setTimeout(() => {
+    newWindow.document.write(`
+      <html>
+        <head>
+          <title>${fileUrl.split("/").pop()}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body, html { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #f4f4f4; overflow: hidden; }
+            .top-right {
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              background: #007bff;
+              color: white;
+              padding: 10px 15px;
+              border-radius: 5px;
+              font-size: 16px;
+              text-decoration: none;
+              z-index: 10;
+            }
+            .top-right:hover {
+              background: #0056b3;
+            }
+
+            iframe, img {
+              width: 100%;
+              height: 100%;
+              border: none;
+              display: block;
+              object-fit: contain; /* Ensures images fit properly */
+            }
+
+            /* Responsive Fixes */
+            @media (max-width: 768px) {
+              .top-right {
+                top: 5px;
+                right: 5px;
+                padding: 8px 12px;
+                font-size: 14px;
+              }
+            }
+          </style>
+        </head>
+      <body>
+        <a class="top-right" href="${fileUrl}" download>Download</a>
+        ${imageFormats.includes(fileExtension) ? `<img src="${fileUrl}" alt="Image Preview">` : `<iframe src="${viewerUrl}"></iframe>`}
+      </body>
+    </html>
+  `);
+  }, 100);
+}
+
+function getFileIcon (mimeType) {
+  const mimeToIconMap = {
+    "application/pdf": "o_picture_as_pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "o_insert_chart",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "o_description",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "o_slideshow",
+    "application/vnd.ms-powerpoint": "o_slideshow",
+    "application/zip": "o_folder_zip",
+    "text/plain": "o_article",
+    "image/png": "o_image",
+    "image/jpeg": "o_image",
+    "image/gif": "o_image",
+    default: "o_insert_drive_file"
+  };
+
+  return mimeToIconMap[mimeType] || mimeToIconMap.default;
+}
+
+function extractFileName (path) {
+  return path ? path.split("/").pop() : "Unknown File";
+}
+
+function removeFile (index) {
+  const file = model.value.projectFiles[index];
+
+  if (file && file.name && file.type) {
+    URL.revokeObjectURL(file); // Clean up object URL
+  }
+
+  if (file && file.file && file.file.virtualPath) {
+    // If it's an existing file, mark it as "remove" instead of deleting from array
+    file.flag = "remove";
+    model.value.projectFiles.splice(index, 1);
+  } else {
+    // For new files, just remove them from the list
+    model.value.projectFiles.splice(index, 1);
+  }
+
+  isFilesValid.value = true;
+  if (model.value.projectFiles.length === 0) {
+    model.value.projectFileFlag = "remove";
+  }
+}
+
+// ------------------------------------------------------------------------------------
+// Advance Filter :- All Dropdowns (SOP Change)
+// ------------------------------------------------------------------------------------
+const {
+  projectCategoryDropdownSingleSelect,
+  projectSubCategoryDropdownSingleSelect,
+  projectTypeDropdownSingleSelect,
+  projectPriorityDropdownSingleSelect,
+  projectApproverDropdownSingleSelect,
+  siteProjectRolesDropdown
+} = projectModule();
+
+const { activeEmployeesDropdownSingleSelect
+} = employeeModule();
+
+const { customerDropdownSingleSelect } = customerModule();
+const { companyContactDropdownSingleSelect } = companyContactsModule();
+
+watch(tab, (newVal, oldVal) => {
+  if (newVal !== oldVal) {
+    projectApproverDropdownSingleSelect.reset();
+    activeEmployeesDropdownSingleSelect.reset();
+    siteProjectRolesDropdown.reset();
+  }
+});
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// On load - If changed
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+onMounted(async () => {
+  projectApproverDropdownSingleSelect.load(user.siteId);
+
+  customerDropdownSingleSelect.load();
+  getAllProjectStatusDropdown("Project Status");
+  projectPriorityDropdownSingleSelect.load("Project Priorities");
+  projectTypeDropdownSingleSelect.load("Project Type");
+  projectCategoryDropdownSingleSelect.load("ProjectCategory");
+  await siteProjectRolesDropdown.load();
+
+  // Keep an unfiltered copy for role/access calculation
+  allSiteProjectRoles.value = _.cloneDeep(
+    siteProjectRolesDropdown.list.value
+  );
+});
+
+watch(
+  () => siteProjectRolesDropdown.list.value.length,
+  (length) => {
+    if (length > 0 && projectId) {
+      getProject(projectId);
+    } else {
+    loading.value = false;
+    }
+  },
+  { immediate: true }
+);
+
+
+</script>

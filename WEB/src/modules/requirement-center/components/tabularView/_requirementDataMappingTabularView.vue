@@ -1,0 +1,200 @@
+<template>
+  <q-card flat bordered class="dashboard-card" style="border: 0.5px solid #1b75ab;">
+    <q-card-section class="row items-center justify-end q-pb-sm">
+
+      <div class="row items-center q-gutter-sm">
+        <q-btn
+          icon="o_open_in_new"
+          size="sm"
+          outline
+          class="text-primary q-ml-md hidden"
+          style="padding: 3px 7px; min-height: 30px;"
+          @click="$router.push({ path: '/requirement',
+            state: {
+              projectId: projectId,
+              projectModuleId: projectModuleId,
+              requirementId: props.requirementId
+            }
+          })"
+        >
+          <q-tooltip>Open Requirement List</q-tooltip>
+        </q-btn>
+      </div>
+    </q-card-section>
+    <q-separator />
+      <q-table
+        ref="tableRef"
+        v-model:pagination="pagination"
+        bordered class="no-shadow"
+        :loading="loading"
+        :rows="rows"
+        :columns="columns"
+        row-key="id"
+        separator="cell"
+        no-data-label="No data available"
+        binary-state-sort
+        :rows-per-page-options="[20, 50, 100, 200, 500]"
+      >
+        <template #header="props">
+          <q-tr :props="props" class="bg-primary text-white">
+            <q-th v-for="col in props.cols" :key="col.name" :props="props">
+              {{ col.label }}
+            </q-th>
+            <q-th v-if="hasRequirementDataMappingNotes" auto-width class="text-center">Actions</q-th>
+          </q-tr>
+        </template>
+        <template #body="props">
+          <q-tr :props="props" :class="highlightedId == props.row.id ? 'highlight' : ''">
+            <q-td style="width: 15%;">
+              {{ props.row.source }}
+            </q-td>
+            <q-td style="width: 15%;">
+              {{ props.row.target }}
+            </q-td>
+            <q-td style="width: 15%;">
+              {{ props.row.integrationDirection.dropDownValue }}
+            </q-td>
+            <q-td style="width: 20%;">
+              {{ props.row.createdBy.person.fullName }}
+            </q-td>
+            <q-td style="width: 25%;">
+              {{ props.row.createdOnUtc }}
+            </q-td>
+            <q-td v-if="hasRequirementDataMappingNotes" class="text-center actions">
+              <a
+                v-if="props.row.requirementDataMappingNotes.length > 0"
+                style="position: relative;"
+                class="q-icon notranslate cursor-pointer q-ml-sm q-mr-md"
+                @click="onRequirementDataMappingNoteEdit(props.row.id, props.row.source, props.row.target, false,  null)"
+              >
+                <q-tooltip anchor="bottom middle" self="top middle">
+                 View Notes
+                </q-tooltip>
+                <q-icon name="o_visibility" size="xs"/>
+                <q-badge
+                  v-if="props.row.dataMappingNotesCount > 0"
+                  style="position: absolute; right: -16px; top: -15px;"
+                  color="green"
+                  text-color="white"
+                  :label="props.row.dataMappingNotesCount"
+                />
+               </a>
+            </q-td>
+          </q-tr>
+        </template>
+      </q-table>
+  </q-card>
+</template>
+
+<script setup>
+import { computed, ref, watch } from 'vue';
+import { useAuthStore } from "stores/auth";
+
+import requirementDataMappingService from "modules/requirement-data-mapping/requirementDataMapping.service";
+import requirementService from "src/modules/requirement/requirement.service";
+
+// Shared DataTable Views
+import useSiteTableState from "composables/dataTable/useSiteTableState.js";
+
+import {
+  initRequirementDataMappingDialogs,
+  onRequirementDataMappingNoteEdit
+} from "src/modules/requirement-data-mapping/utils/dialogs.js";
+
+const emit = defineEmits(['summary'])
+
+const props = defineProps({
+  requirementId: {
+    type: String,
+    required: true
+  }
+})
+
+// Common variables
+const rows = ref([]);
+const authStore = useAuthStore();
+const siteId = computed(() => authStore.user?.siteId);
+const loading = ref(true);
+const projectId = ref('');
+const projectModuleId = ref('');
+const activeRowId = ref(null);
+const highlightedId = computed(() => activeRowId.value);
+
+const pagination = ref({ sortBy: "updatedOnUtc", descending: true, rowsPerPage: 20, page: 1 });
+const columns = ref([
+  { name: "source", label: "Source", field: "source", align: "left", sortable: true },
+  { name: "target", label: "Target", field: "target", align: "left", sortable: true },
+  { name: "integrationDirection.dropDownValue", label: "Integration Direction", field: "integrationDirection.dropDownValue", align: "left", sortable: true },
+  { name: "createdBy.person.fullName", label: "Created By", field: "createdBy.person.fullName", align: "left", sortable: true },
+  { name: "createdOnUtc", label: "Created Date", field: "createdOnUtc", align: "left", sortable: true },
+]);
+
+const hasRequirementDataMappingNotes = computed(() =>
+  rows.value.some(row => row.requirementDataMappingNotes?.length > 0)
+);
+
+const getRequirementDataMapping = () => {
+  loading.value = true;
+  requirementDataMappingService.getRequirementDataMapping(props.requirementId).then((resp) => {
+    rows.value = (resp.requirementDataMappingsList || []).map(item => ({
+        ...item,
+    }));
+
+    if (rows.value.length > 0) {
+      columns.value.find(x => x.name === "source").label = rows.value[0].requirement?.sourceLabel || "Source";
+      columns.value.find(x => x.name === "target").label = rows.value[0].requirement?.targetLabel || "Target";
+    }
+  }).finally(() => {
+    loading.value = false;
+  });
+};
+
+const getRequirementDataMappingLabels = (requirementId) => {
+  requirementService.getRequirementDataMappingLabels(requirementId).then((resp) => {
+    columns.value = columns.value.map(column => {
+      if (column.name === "source") {
+        return { ...column, label: resp.sourceLabel || "Source" };
+      }
+
+      if (column.name === "target") {
+        return { ...column, label: resp.targetLabel || "Target" };
+      }
+
+      return column;
+    });
+  });
+};
+
+const {
+} = useSiteTableState({
+  storageKey: "requirement-Center-Requirement-Data-Mapping-Tabular-List",
+  siteId: siteId,
+  defaultPagination: {
+    sortBy: "createdOnUtc",
+    descending: true,
+    rowsPerPage: 20,
+    page: 1
+  }
+});
+
+// ------------------------------------------------------------------------------------
+// DataTable:- Initialization Of Dialogs, Actions
+// ------------------------------------------------------------------------------------
+initRequirementDataMappingDialogs(activeRowId);
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// On load
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+watch(
+  () => props.requirementId,
+  async () => {
+    await getRequirementDataMapping(
+      props.requirementId
+    );
+    getRequirementDataMappingLabels(props.requirementId);
+  },
+  { immediate: true }
+);
+
+</script>

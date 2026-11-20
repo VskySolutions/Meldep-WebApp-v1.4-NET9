@@ -1,0 +1,367 @@
+<template>
+  <q-dialog ref="linkContainer" v-model="linkRequirementTaskIssueModal" class="project-message-dialog customDialog dialog-scrollable-content" persistent position="right">
+    <q-card style="width: 800px; max-width: 800px;">
+      <q-card-section class="bg-primary text-white flex items-center q-pa-sm">
+        <div class="q-space flex  fs-16">Link To Weekly/Monthly Plan?</div>
+        <q-btn dense flat icon="o_close" @click="toggleLinkRequirementTaskIssueModal" />
+      </q-card-section>
+      <q-card-section class="row q-pa-md">
+        <div class="row full-width q-mb-md">
+          <div class="col-12 q-mb-sm">
+            <label class="Cutomlabel" style="margin: 0px !important;">Project Name</label>
+            <q-input v-model="model.projectName" outlined hide-bottom-space :dense="true" :readonly="true" />
+          </div>
+          <div class="col-6">
+            <label class="Cutomlabel" style="margin: 0px !important;">Plan Type</label>
+            <div class="q-gutter-sm">
+              <q-radio
+                v-for="plan in ProjectPlanTypeDropdownSingleSelect.list.value"
+                :key="plan.id"
+                v-model="model.planTypeId"
+                :val="plan.value"
+                :label="plan.text"
+                @update:model-value="(val) => onProjectPlanChanged(plan)"
+              />
+            </div>
+          </div>
+          <div v-if="!showWeeklyMonthlyCalendar">
+            <formDate
+              v-model="model.date"
+              label="Week End"
+              :dateOptions="isSunday"
+              :navigationMinYearMonth="minMonth"
+              :minimal="true"
+              :firstDayOfWeek="1"
+              :error="dateError"
+              :error-message="dateErrorMessage"
+            />
+          </div>
+          <div v-if="showWeeklyMonthlyCalendar">
+            <formMonthYearPicker
+              v-model="model.date"
+              label="Month"
+              :default-view="currentView"
+              :navigation-min-year-month="minMonth"
+              :error="dateError"
+              :error-message="dateErrorMessage"
+              @update:model-value="onUpdateMonth"
+            />
+          </div>
+        </div>
+        <div class="row full-width q-mb-md">
+          <div class="col-12">Selected {{ model.type }}</div>
+          <!-- <div v-for="(name, index) in model.names" :key="name" class="col-12 q-px-sm q-mb-xs">
+            {{ (index+1) + ") " + name }}
+          </div> -->
+           <div
+            v-for="(name, index) in model.names"
+            :key="name"
+            class="col-12 q-px-sm q-mb-xs"
+          >
+            <span
+              class="cursor-pointer hoverable-cell"
+              @click="handleViewClick(model.ids[index])"
+            >
+              {{ (index + 1) + ') ' + name }}
+
+              <q-tooltip>
+                {{ 'View ' + model.type }}
+              </q-tooltip>
+            </span>
+          </div>
+        </div>
+        <div v-if="model.names.length === 1" class="row full-width q-mb-md">
+          <div class="col-12 col-sm-12 col-md-12 col-lg-12">
+            <div class="q-mb-xs text-black">
+              <label>Weekly/Monthly Plan Short Description<span class="required">*</span></label>
+            </div>
+            <div class="form-group">
+              <q-editor
+                v-model="model.description"
+                :dense="$q.screen.lt.md"
+                :toolbar="toolbar"
+                :fonts="fonts"
+                @blur="v$.description.$touch()"
+              />
+            </div>
+              <div
+                v-if="v$.description.$error"
+                class="text-negative text-caption q-mt-xs"
+              >
+                {{ v$.description.$errors[0]?.$message }}
+              </div>
+          </div>
+        </div>
+        <div class="row full-width flex justify-center q-px-sm">
+          <q-btn size="md" color="grey-4" outline label="Close" type="button" class="text-grey-9 q-mr-xs" style="width: 120px;" no-caps @click="toggleLinkRequirementTaskIssueModal" />
+          <q-btn size="md" color="primary" outline label="Link Now" type="button" :loading="processing" :disable="disableActionButton" style="width: 120px;" no-caps @click="OnSave()" />
+        </div>
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+</template>
+
+<script setup>
+import { ref, onMounted, watch, computed } from "vue";
+import { useQuasar, date } from "quasar";
+import { notifySuccess } from "assets/utils";
+import { getEditorConfig } from "src/composables/form-inputs/useEditorSettings.js";
+import { helpers } from "@vuelidate/validators";
+import useVuelidate from "@vuelidate/core";
+
+import projectService from "modules/project/projects.service";
+
+// SOP Change :- Shared Inputs
+import formDate from "src/components/form-inputs/_formDate.vue";
+import formMonthYearPicker from "src/components/form-inputs/_formMonthYearPicker.vue";
+
+// SOP Change :- Shared Dropdowns
+import projectTargetPlanModule from "src/modules/project-targetplan/utils/dropdowns.js";
+const emit = defineEmits(["ok"]);
+
+import {
+  onRequirementView
+} from "src/modules/requirement/utils/dialogs.js";
+
+// Shared Issue Dialogs
+import {
+  onIssueView
+} from "src/modules/issue/utils/dialogs.js";
+
+// Shared Project Task Dialogs
+import {
+  onProjectTaskView
+} from "src/modules/project-tasks/utils/dialogs.js";
+
+const $q = useQuasar();
+const { fonts, toolbar } = getEditorConfig($q);
+
+const today = new Date();
+const minMonth = date.formatDate(today, "YYYY/MM");
+
+const processing = ref(false);
+const showWeeklyMonthlyCalendar = ref(false);
+const disableActionButton = ref(true);
+
+const props = defineProps({
+  projectId: { type: String, default: "" },
+  projectName: { type: String, default: "" },
+  type: { type: String, default: "" },
+  ids: { type: Array, default: () => [] },
+  numbers: { type: Array, default: () => [] },
+  names: { type: Array, default: () => [] },
+  shortDescriptions: { type: Array, default: () => [] },
+  hasTaskLink: { type: Number, default: 0 }
+});
+
+const linkRequirementTaskIssueModal = ref(false);
+const toggleLinkRequirementTaskIssueModal = () => { linkRequirementTaskIssueModal.value = !linkRequirementTaskIssueModal.value; };
+
+const model = ref({
+  projectId: props?.projectId ? props.projectId : null,
+  projectName: props?.projectName ? props.projectName : null,
+  planTypeId: null,
+  date: null,
+  type: props.type,
+  ids: props?.ids ? props.ids : null,
+  numbers: props?.numbers ? props.numbers : null,
+  names: props?.names ? props.names : null,
+  description: props?.shortDescriptions ?? ''
+});
+
+const onProjectPlanChanged = (selected) => {
+  showWeeklyMonthlyCalendar.value = selected.text === "Monthly";
+};
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// Project Weekly Date
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+// Only allow Sundays and today/future
+const isSunday = (dateStr) => {
+  const day = new Date(dateStr);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  return (
+    day.getDay() === 0 // && day >= todayStart
+  );
+};
+
+// Validation state
+const dateError = ref(false);
+const dateErrorMessage = ref("");
+
+// Regex to match MM/DD/YYYY format
+const validDateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
+
+// ----------------------------------------------------------------------------------------------------------------
+// Requirement Info - Validation Rules
+// ----------------------------------------------------------------------------------------------------------------
+const descriptionRequired = helpers.withMessage(
+  "Description is required",
+  value => {
+    if (!value) return false;
+    const descriptionText = stripHtml(value);
+    const containsImage = hasImage(value);
+    return descriptionText || containsImage;
+  }
+);
+
+const stripHtml = (html) => {
+  if (!html) return "";
+  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+};
+
+const hasImage = (html) => {
+  if (!html) return false;
+  return /<img\s+[^>]*src=/i.test(html);
+};
+
+const rules = computed(() => ({
+  description: { descriptionRequired }
+}));
+
+const v$ = useVuelidate(rules, model);
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// Project Monthly Date
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+const calendarRef = ref(null);
+const qDateProxy = ref(null);
+const currentView = ref("Years");
+const formattedMonthDate = ref("");
+
+const onUpdateMonth = (val) => {
+  if (currentView.value === "Years") {
+    currentView.value = "Months";
+    calendarRef.value?.setView("Months");
+  } else {
+    formattedMonthDate.value = val;
+    // Convert 'June-2025' or 'MMMM-YYYY' to Date object (1st of month)
+    const parsedDate = new Date(val);
+    const formatted = date.formatDate(parsedDate, "MM/01/YYYY"); // Day is fixed to 01
+
+    model.value.date = formatted; // Save Date object
+    currentView.value = "Years";
+    qDateProxy.value?.hide(); // Close popup
+  }
+};
+
+const handleViewClick = (id) => {
+  if (model.value.type === 'Project Task') {
+    onProjectTaskView(id);
+  } else if (model.value.type === 'Requirement') {
+    onRequirementView(id);
+  } else if (model.value.type === 'Issue') {
+    onIssueView(id);
+  }
+};
+
+// ------------------------------------------------------------------------------------
+// Advance Filter :- All Dropdowns (SOP Change)
+// ------------------------------------------------------------------------------------
+const {
+  ProjectPlanTypeDropdownSingleSelect
+} = projectTargetPlanModule();
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// On Save: Link Requirement/Task/Issue
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+const OnSave = async () => {
+  const isValid = await v$.value.$validate();
+  if (!isValid) {
+    return;
+  }
+
+  const title = `Link ${model.value.type} To ${showWeeklyMonthlyCalendar.value ? "Monthly" : "Weekly"} Plan`;
+  // show a warning message advising the user to create a task first before linking
+  const message = props.hasTaskLink > 0
+    ? `It is not advisable to link ${model.value.type.toLowerCase()} directly here.Please create a task first and then link it. Do you still want to proceed?`
+    : "Are you sure you want to link this to plan?";
+
+  $q.dialog({
+    title,
+    message,
+    ok: { label: "Yes", color: "primary" },
+    cancel: { label: "No", color: "negative" }
+  }).onOk(async () => {
+    $q.loading.show();
+    try {
+      await projectService.linkRequirementTaskIssueToWeeklyPlanDate(
+        model.value
+      );
+
+      notifySuccess({
+        message: `${model.value.type} Linked To ${
+          showWeeklyMonthlyCalendar.value ? "Monthly" : "Weekly"
+        } Plan`
+      });
+
+      emit("ok");
+      toggleLinkRequirementTaskIssueModal();
+    } catch (error) {
+      console.error("Error linking task to plan:", error);
+    } finally {
+      $q.loading.hide();
+    }
+  });
+};
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// Search: When user types in search
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+watch(showWeeklyMonthlyCalendar, () => {
+  model.value.date = "";
+  dateError.value = false;
+  dateErrorMessage.value = "";
+});
+
+
+watch(
+  () => model.value,
+  (newModelValue) => {
+    // Validate date format
+    if (!newModelValue?.date || !validDateRegex.test(newModelValue.date)) {
+      dateError.value = true;
+      dateErrorMessage.value = "Please enter date in MM/DD/YYYY format.";
+    } else if (!showWeeklyMonthlyCalendar.value && !isSunday(newModelValue.date)) {
+      dateError.value = true;
+      dateErrorMessage.value = "Date must be a Sunday.";
+    } else {
+      dateError.value = false;
+      dateErrorMessage.value = "";
+    }
+
+    // Disable action if any required field is missing or date has error
+    const hasMissingData =
+      !newModelValue?.projectId ||
+      !newModelValue?.date ||
+      !newModelValue?.planTypeId ||
+      !newModelValue?.type ||
+      !newModelValue?.ids ||
+      newModelValue?.ids.length === 0 ||
+      !stripHtml(newModelValue?.description) && !hasImage(newModelValue?.description) ||
+      dateError.value;
+
+    disableActionButton.value = hasMissingData;
+  },
+  { deep: true }
+);
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// On Page Load
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+onMounted(async () => {
+  await ProjectPlanTypeDropdownSingleSelect.load("Project Weekly Target Planning");
+  // set default in type
+  const weeklyValue = await ProjectPlanTypeDropdownSingleSelect.getValueByLabel("weekly");
+  if (weeklyValue) {
+    model.value.planTypeId = weeklyValue;
+  }
+});
+
+</script>

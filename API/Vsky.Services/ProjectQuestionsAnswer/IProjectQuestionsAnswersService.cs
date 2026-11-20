@@ -1,0 +1,57 @@
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using Vsky.Core;
+using Vsky.Models;
+
+namespace Vsky.Services.ProjectQuestionsAnswer
+{
+    public interface IProjectQuestionsAnswersService
+    {
+        Task<IPagedList<ProjectQuestionsAnswers>> GetAllProjectQuestionsAnswers(
+            string siteId,
+            string loggedUserId,
+            string employeeId,
+            string searchText,
+            string title,
+            List<string> projectIds,
+            List<string> moduleIds,
+            List<string> requirementIds,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue
+        );
+
+        IPagedList<ProjectQuestionsAnswers> GetAllProjectQuestionAndAnswersForDashboard(
+          string SiteId,
+          string projectId,
+          string sortBy,
+          bool descending,
+          int page = 1,
+          int pageSize = int.MaxValue
+        );
+
+        Task<List<ProjectQuestionsAnswers>> GetProjectQAByRequirementId(
+            string siteId,
+            string searchText,
+            string requirementId,
+            string title,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue
+        );
+
+        List<ProjectQuestionsAnswers> GetAllQuestionAnswersByQuestionId(string SiteId, string questionId, bool latestOnTop = false);
+
+        Task<ProjectQuestionsAnswers> GetProjectQuestionsAnswerById(string Id);
+        Task<Vsky.Models.ProjectQuestionsAnswers> GetProjectQuestionsAnswerByIdInDetail(string siteId, string Id);
+        Task<ProjectQuestionsAnswers> GetProjectQuestionsAnswerByTitle(string SiteId, string projectId, string requirementId, string title, string id = null);
+        void InsertProjectQuestionsAnswer(ProjectQuestionsAnswers entity);
+        void UpdateProjectQuestionsAnswer(ProjectQuestionsAnswers entity);
+        void DeleteProjectQuestionsAnswer(ProjectQuestionsAnswers entity);
+    }
+}
+

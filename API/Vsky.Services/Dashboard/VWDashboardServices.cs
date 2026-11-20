@@ -1,0 +1,1165 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Vsky.Core;
+using Vsky.Data;
+using Vsky.Models;
+using System.Linq.Dynamic.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using System.Threading.Tasks;
+using System.Globalization;
+using SendGrid.Helpers.Mail;
+using AngleSharp.Dom;
+using Microsoft.PowerBI.Api.Models;
+using Vsky.Services.ApplicationUserRoles;
+
+namespace Vsky.Services.Dashboard
+{
+    public class VWDashboardServices : IVWDashboardServices
+    {
+        #region Serivces
+        private readonly IRepository<VW_Customer> _vwCustomerListRepository;
+        private readonly IRepository<VW_Project> _vwCustomerProjectListRepository;
+        private readonly IRepository<VW_ProjectSwimLane> _vwProjectSwimLaneRepository;
+        private readonly IRepository<VW_ProjectTask> _vwProjectTaskRepository;
+        private readonly IRepository<VW_EmployeeTaskActivitySummary> _vwEmployeeTaskActivitySummaryRepository;
+        private readonly IRepository<VW_ProjectModules> _vwProjectModulesRepository;
+        private readonly IRepository<VW_Requirement> _vwRequirementRepository;
+        private readonly IRepository<VW_ProjectTaskActivities> _vwProjectActivitiesRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IRepository<Tags> _tagsRepository;
+        private readonly IRepository<VW_UserTaskTags> _vwUserTaskTagsRepository;
+        private readonly IRepository<VW_UserProjectPinned> _vwUserProjectPinnedRepository;
+        private readonly IRepository<VW_UserProjectColor> _vwUserProjectColorRepository;
+        private readonly IRepository<Project> _projectRepository;
+        private readonly IApplicationUserRoleService _applicationUserRoleService;
+
+        public VWDashboardServices(
+            IRepository<VW_Customer> vwCustomerListRepository,
+            IRepository<VW_Project> vwCustomerProjectListRepositor,
+            IRepository<VW_ProjectSwimLane> vwProjectSwimLaneRepository,
+            IRepository<VW_ProjectTask> vwProjectTaskRepository,
+            IRepository<VW_EmployeeTaskActivitySummary> vwEmployeeTaskActivitySummaryRepository,
+            IRepository<VW_ProjectModules> vwProjectModulesRepository,
+            IRepository<VW_Requirement> vwRequirementRepository,
+            IRepository<VW_ProjectTaskActivities> vwProjectActivitiesRepository,
+            UserManager<ApplicationUser> userManager,
+            IRepository<Tags> tagsRepository,
+            IRepository<VW_UserTaskTags> vwUserTaskTagsRepository,
+            IRepository<VW_UserProjectPinned> vwUserProjectPinnedRepository,
+            IRepository<VW_UserProjectColor> vwUserProjectColorRepository,
+            IRepository<Project> projectRepository,
+            IApplicationUserRoleService applicationUserRoleService)
+        {
+            _vwCustomerListRepository = vwCustomerListRepository;
+            _vwCustomerProjectListRepository = vwCustomerProjectListRepositor;
+            _vwProjectSwimLaneRepository = vwProjectSwimLaneRepository;
+            _vwProjectTaskRepository = vwProjectTaskRepository;
+            _vwEmployeeTaskActivitySummaryRepository = vwEmployeeTaskActivitySummaryRepository;
+            _vwProjectModulesRepository = vwProjectModulesRepository;
+            _vwRequirementRepository = vwRequirementRepository;
+            _vwProjectActivitiesRepository = vwProjectActivitiesRepository;
+            _userManager = userManager;
+            _tagsRepository = tagsRepository;
+            _vwUserTaskTagsRepository = vwUserTaskTagsRepository;
+            _vwUserProjectPinnedRepository = vwUserProjectPinnedRepository;
+            _vwUserProjectColorRepository = vwUserProjectColorRepository;
+            _projectRepository = projectRepository;
+            _applicationUserRoleService = applicationUserRoleService;
+        }
+        #endregion
+
+        #region Private Methods
+        private static string GetOrderBy(string orderBy)
+        {
+            return orderBy;
+        }
+        #endregion
+
+        #region
+        public async Task<IPagedList<VW_Customer>> GetAllCustomerList(
+            string SiteId,
+            string SearchText,
+            string logginuser = "",
+            string employeeId = "",
+            string projectId = "",
+            List<string> CustomerIds = null,
+            List<string> CustomerTypeIds = null,
+            List<string> CustomerAssignToIds = null,
+            List<string> ParentCustomerIds = null,
+            List<string> ProjectTypeIds = null,
+            List<string> ProjectIds = null,
+            List<string> ProjectStatusIds = null,
+            List<string> ProjectPriorityIds = null,
+            List<string> ProjectCoordinatorIds = null,
+            List<string> ProjectLeadsIds = null,
+            int Status = 0,
+            List<string> CompanyContactIds = null,
+            string Year = "",
+            string SortBy = "",
+            bool Descending = false,
+            int page = 1,
+            int pageSize = int.MaxValue)
+        {
+            var query = _vwCustomerListRepository.TableNoTracking
+                .Where(m => m.SiteId == SiteId)
+                .Include(m => m.CustomerTaskStatusSummary)
+                .Include(m => m.Projects.Where(m => !m.IsTemplate)
+                    .OrderByDescending(m => m.IsPinned)
+                    .ThenByDescending(m => m.CreatedOnUtc))
+                .Include(m => m.Projects).ThenInclude(m => m.ProjectTaskStatusSummary)
+                .Include(m => m.Projects).ThenInclude(m => m.ProjectIssueStatusSummary)
+                .Include(m => m.Projects).ThenInclude(m => m.ProjectRequirementStatusSummary)
+                .Include(m => m.Projects)
+                    .ThenInclude(x => x.ProjectEmployeeMappings
+                        .Where(m => !m.Deleted && m.EmployeeId == employeeId))
+                    .ThenInclude(m => m.ProjectEmployeeRoleMappings
+                        .Where(r => !r.Deleted))
+                    .ThenInclude(r => r.SitesProjectRoles)
+                    .ThenInclude(r => r.SitesProjectRolesPermissions
+                        .Where(p => !p.Deleted))
+                .AsQueryable();
+            var userdata = _userManager.FindByIdAsync(logginuser).GetAwaiter().GetResult();
+            var user = _userManager.FindByNameAsync(userdata.UserName).GetAwaiter().GetResult();
+
+            bool IsAdmin = await IsCurrentUserAdmin(logginuser, SiteId);
+            if (user != null && !user.Deleted && user.Active)
+            {
+                //Get user roles
+                var roles = _userManager.GetRolesAsync(user).GetAwaiter().GetResult();
+
+                var createdProjectIds = new HashSet<string>(
+                    await _projectRepository.TableNoTracking
+                        .Where(x =>
+                            !x.Deleted &&
+                            x.SiteId == SiteId &&
+                            x.CreatedById == logginuser)
+                        .Select(x => x.Id)
+                        .ToListAsync()
+                );
+
+                if (!IsAdmin)
+                {
+                    query = query.Where(customer =>
+                        customer.Projects.Any(project =>
+                            createdProjectIds.Contains(project.Id) ||
+                            project.ProjectEmployeeMappings.Any(mapping =>
+                                !mapping.Deleted &&
+                                mapping.EmployeeId == employeeId &&
+
+                                mapping.ProjectEmployeeRoleMappings.Any(roleMapping =>
+                                    !roleMapping.Deleted &&
+
+                                    roleMapping.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(permission =>
+                                            !permission.Deleted &&
+                                            (
+                                                permission.FullAccess ||
+                                                permission.ViewOnly ||
+                                                permission.Notes
+                                            )
+                                        )
+                                )
+                            )
+                        )
+                    );
+                }
+
+                if (!string.IsNullOrEmpty(Year))
+                {
+                    int YearINT = Convert.ToInt32(Year);
+                    query = query.Where(m => m.Projects.Any(m => m.Year == YearINT));
+                }
+
+                if (CustomerIds != null && CustomerIds.Any())
+                    query = query.Where(m => CustomerIds.Contains(m.Id));
+
+                if (CustomerTypeIds != null && CustomerTypeIds.Any())
+                    query = query.Where(m => CustomerTypeIds.Contains(m.CustomerTypeId));
+
+                if (CustomerAssignToIds != null && CustomerAssignToIds.Any())
+                    query = query.Where(m => CustomerAssignToIds.Contains(m.AssignToId));
+
+                if (ParentCustomerIds != null && ParentCustomerIds.Any())
+                    query = query.Where(m => ParentCustomerIds.Contains(m.ParentCustomerId));
+
+                if (ProjectTypeIds != null && ProjectTypeIds.Any())
+                    query = query.Where(m => m.Projects.Any(p => ProjectTypeIds.Contains(p.ProjectTypeId)));
+                //query = query.Where(m => m.Projects.Any(m => ProjectTypeIds.Any(x => x ==m.ProjectTypeId )));
+
+                if (ProjectIds != null && ProjectIds.Any())
+                    query = query.Where(m => m.Projects.Any(m => ProjectIds.Contains(m.Id)));
+
+                if (ProjectStatusIds != null && ProjectStatusIds.Any())
+                    query = query.Where(m => m.Projects.Any(m => ProjectStatusIds.Contains(m.ProjectStatusId)));
+
+                if (ProjectPriorityIds != null && ProjectPriorityIds.Any())
+                    query = query.Where(m => m.Projects.Any(m => ProjectPriorityIds.Contains(m.ProjectPriorityId)));
+
+                if (Status == 0)
+                    query = query.Where(m => m.Projects.Any(m => m.Active == false));
+                else if (Status == 1)
+                    query = query.Where(m => m.Projects.Any(m => m.Active == true));
+
+                if (ProjectCoordinatorIds?.Any() == true)
+                {
+                    query = query.Where(m =>
+                        m.Projects.Any(proj =>
+                            proj.ProjectEmployeeMappings.Any(mapping =>
+                                !mapping.Deleted &&
+                                ProjectCoordinatorIds.Contains(mapping.EmployeeId) &&
+                                mapping.ProjectEmployeeRoleMappings.Any(roleMapping =>
+                                    !roleMapping.Deleted &&
+                                    roleMapping.SitesProjectRoles.MasterProjectRoles.Name ==
+                                        "Project Coordinator"
+                                )
+                            )
+                        )
+                    );
+                }
+
+                if (ProjectLeadsIds != null && ProjectLeadsIds.Any())
+                {
+                    query = query.Where(m =>
+                        m.Projects.Any(proj =>
+                            proj.ProjectEmployeeMappings.Any(mapping =>
+                                !mapping.Deleted &&
+                                ProjectLeadsIds.Contains(mapping.EmployeeId) &&
+                                mapping.ProjectEmployeeRoleMappings.Any(roleMapping =>
+                                    !roleMapping.Deleted &&
+                                    roleMapping.SitesProjectRoles.MasterProjectRoles.Name == "Project Lead"
+                                )
+                            )
+                        )
+                    );
+                }
+
+                if (CompanyContactIds != null && CompanyContactIds.Any())
+                    query = query.Where(m => m.Projects.Any(m => CompanyContactIds.Contains(m.CompanyContactId)));
+
+                if (!string.IsNullOrEmpty(SearchText))
+                {
+                    query = query.Where(m =>
+                        m.CustomerName.Contains(SearchText.ToLower()) ||
+                        m.CustomerType.Contains(SearchText.ToLower()) ||
+                        m.AssignTo.Contains(SearchText.ToLower()) ||
+                        m.ParentCustomerName.Contains(SearchText.ToLower()) ||
+                        m.Projects.Any(n => n.Name.Contains(SearchText.ToLower())) ||
+                        m.Projects.Any(n => n.Status.Contains(SearchText.ToLower())) ||
+                        m.Projects.Any(n => n.Priority.Contains(SearchText.ToLower()))
+                    );
+                }
+
+                //if (!string.IsNullOrEmpty(projectId))
+                //    query = query.Where(m => m.Projects.Any(x => x.Id == projectId));
+
+                if (!string.IsNullOrWhiteSpace(SortBy))
+                {
+                    string Sort = SortBy + " " + (Descending ? "desc" : "asc");
+                    query = query.OrderBy(Sort);
+                }
+                else
+                    query = query.OrderByDescending(m => m.CreatedOnUtc);
+
+
+
+                var list = new PagedList<VW_Customer>(query, page, pageSize);
+                //return list;
+                foreach (var customer in list)
+                {
+                    foreach (var project in customer.Projects)
+                    {
+                        bool isProjectCreator =
+                            createdProjectIds.Contains(project.Id);
+
+                        var permissions = GetProjectPermissions(
+                            project.ProjectEmployeeMappings,
+                            employeeId,
+                            IsAdmin,
+                            isProjectCreator);
+
+                        project.CurrentUserManage =
+                            permissions.Manage;
+
+                        project.CurrentUserView =
+                            permissions.View;
+
+                        project.CurrentUserNotes =
+                            permissions.Notes;
+                    }
+                }
+
+                return list;
+            }
+
+            // If user is invalid/inactive, return normal empty result
+            return new PagedList<VW_Customer>(
+                query,
+                page,
+                pageSize);
+        }
+
+        public async Task<IPagedList<VW_Project>> GetAllCustomerProjectList(
+            string SiteId,
+            string filterProject = "",
+            string logginuser = "",
+            string employeeId = "",
+            string searchText = "",
+            List<string> CustomerIds = null,
+            List<string> ProjectCategoryId = null,
+            List<string> ProjectSubCategoryIds = null,
+            List<string> ProjectTypeIds = null,
+            List<string> ProjectIds = null,
+            List<string> ProjectStatusIds = null,
+            List<string> ProjectPriorityIds = null,
+            List<string> ProjectCoordinatorIds = null,
+            List<string> ProjectLeadsIds = null,
+            int Status = 0,
+            List<string> CompanyContactIds = null,
+            string Year = "",
+            string SortBy = "",
+            bool Descending = false,
+            int page = 1,
+            int pageSize = int.MaxValue)
+        {
+            var query = _vwCustomerProjectListRepository.TableNoTracking
+            .Include(x => x.ProjectEmployeeMappings
+                .Where(m =>
+                    !m.Deleted &&
+                    m.EmployeeId == employeeId))
+                .ThenInclude(m => m.ProjectEmployeeRoleMappings)
+                    .ThenInclude(r => r.SitesProjectRoles)
+                        .ThenInclude(r => r.SitesProjectRolesPermissions)
+            .Where(x => x.SiteId == SiteId);
+
+            var userdata = _userManager.FindByIdAsync(logginuser).GetAwaiter().GetResult();
+            var user = _userManager.FindByNameAsync(userdata.UserName).GetAwaiter().GetResult();
+            var userPinnedProjectIds = await GetUserPinnedProjectIdListByUserId(logginuser);
+            var userProjectColors = await GetUserProjectColorListByUserId(logginuser);
+            bool isAdmin = false;
+            var createdProjectIds = new HashSet<string>(
+                await _projectRepository.TableNoTracking
+                    .Where(x =>
+                        !x.Deleted &&
+                        x.SiteId == SiteId &&
+                        x.CreatedById == logginuser)
+                    .Select(x => x.Id)
+                    .ToListAsync()
+            );
+            if (user != null && !user.Deleted && user.Active)
+            {
+                //Get user roles
+                var roles = _userManager.GetRolesAsync(user).GetAwaiter().GetResult();
+
+                //isAdmin = roles.Contains("Admin") || roles.Contains("Site Super Admin") || roles.Contains("System Super Admin") || roles.Contains("Project Admin");
+
+                isAdmin = await IsCurrentUserAdmin(logginuser, SiteId);
+                if (!isAdmin)
+                {
+                    query = query.Where(x =>
+                        createdProjectIds.Contains(x.Id) ||
+                        x.ProjectEmployeeMappings.Any(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId &&
+                            m.ProjectEmployeeRoleMappings.Any(r =>
+                                !r.Deleted &&
+                                r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                                    !p.Deleted &&
+                                    (p.FullAccess || p.ViewOnly || p.Notes)
+                                )
+                            )
+                        )
+                    );
+                }
+
+                if (!string.IsNullOrEmpty(Year))
+                {
+                    int YearINT = Convert.ToInt32(Year);
+                    query = query.Where(m => m.Year == YearINT);
+                }
+
+                if (Status == 0)
+                    query = query.Where(x => x.Active == false);
+                else if (Status == 1)
+                    query = query.Where(x => x.Active == true);
+
+                if (ProjectTypeIds != null && ProjectTypeIds.Any())
+                    query = query.Where(m => ProjectTypeIds.Contains(m.ProjectTypeId));
+
+                var filteredCustomerIds = CustomerIds.Where(id => id != null).ToList();
+
+                if (filteredCustomerIds.Any())
+                    query = query.Where(m => m.CustomerId != null && filteredCustomerIds.Contains(m.CustomerId));
+
+                if (ProjectCoordinatorIds != null && ProjectCoordinatorIds.Any())
+                {
+                    query = query.Where(x =>
+                        x.ProjectEmployeeMappings.Any(m =>
+                            ProjectCoordinatorIds.Contains(m.EmployeeId) &&
+                            !m.Deleted &&
+                            m.ProjectEmployeeRoleMappings.Any(r =>
+                                !r.Deleted &&
+                                r.SitesProjectRoles.MasterProjectRoles.Name == "Project Coordinator"
+                            )
+                        )
+                    );
+                }
+
+                if (ProjectLeadsIds != null && ProjectLeadsIds.Any())
+                {
+                    query = query.Where(x =>
+                        x.ProjectEmployeeMappings.Any(m =>
+                            ProjectLeadsIds.Contains(m.EmployeeId) &&
+                            !m.Deleted &&
+                            m.ProjectEmployeeRoleMappings.Any(r =>
+                                !r.Deleted &&
+                                r.SitesProjectRoles.MasterProjectRoles.Name == "Project Lead"
+                            )
+                        )
+                    );
+                }
+
+                if (CompanyContactIds != null && CompanyContactIds.Any())
+                    query = query.Where(x => CompanyContactIds.Contains(x.CompanyContactId));
+
+                if (ProjectStatusIds != null && ProjectStatusIds.Any())
+                    query = query.Where(m => ProjectStatusIds.Contains(m.ProjectStatusId));
+
+                if (ProjectIds != null && ProjectIds.Any())
+                    query = query.Where(m => ProjectIds.Contains(m.Id));
+
+                if (ProjectPriorityIds != null && ProjectPriorityIds.Any())
+                    query = query.Where(m => ProjectPriorityIds.Contains(m.ProjectPriorityId));
+
+                if (!string.IsNullOrEmpty(filterProject))
+                {
+                    query = query.Where(m =>
+                        m.CustomerName.Contains(filterProject.ToLower()) ||
+                        m.Name.Contains(filterProject.ToLower())
+                    );
+                }
+
+                if (!string.IsNullOrWhiteSpace(SortBy))
+                {
+                    var orderBy = $"{GetOrderBy(SortBy)} {(Descending ? "desc" : "asc")}";
+                    query = query.OrderByDescending(x => userPinnedProjectIds.Contains(x.Id)).ThenBy(orderBy);
+                }
+                else
+                {
+                    query = query.OrderByDescending(x => userPinnedProjectIds.Contains(x.Id)).ThenByDescending(x => x.CreatedOnUtc);
+                }
+
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    searchText = searchText.ToLower();
+
+                    query = query.Where(m =>
+                        m.CustomerName.ToLower().Contains(searchText) ||
+                        m.Name.ToLower().Contains(searchText) ||
+                        m.ProjectTypeName.ToLower().Contains(searchText) ||
+                        m.Status.ToLower().Contains(searchText) ||
+                        m.Priority.ToLower().Contains(searchText));
+                }
+            }
+
+            var list = new PagedList<VW_Project>(query, page, pageSize);
+
+            foreach (var item in list)
+            {
+                item.IsPinned = userPinnedProjectIds?.Contains(item.Id) ?? false;
+                item.ProjectColor = userProjectColors?
+                    .FirstOrDefault(x => x.ProjectId == item.Id)?.Color ?? "";
+                bool isProjectCreator = createdProjectIds.Contains(item.Id);
+
+                //SetProjectPermissions(
+                //    item,
+                //    employeeId,
+                //    isAdmin,
+                //    isProjectCreator);
+                var permissions = GetProjectPermissions(
+                    item.ProjectEmployeeMappings,
+                    employeeId,
+                    isAdmin,
+                    isProjectCreator);
+
+                item.CurrentUserManage = permissions.Manage;
+                item.CurrentUserView = permissions.View;
+                item.CurrentUserNotes = permissions.Notes;
+            }
+
+            return list;
+        }
+
+        public IPagedList<VW_ProjectSwimLane> GetAllProjectSwimlaneList(string SiteId, string filterProjectSwimlane = "", List<string> ProjectId = null, string SortBy = "",
+            bool Descending = false, int page = 1, int pageSize = int.MaxValue)
+        {
+            var query = _vwProjectSwimLaneRepository.TableNoTracking.Where(m => m.SiteId == SiteId);
+
+            if (ProjectId != null && ProjectId.Any())
+                query = query.Where(m => ProjectId.Contains(m.ProjectId));
+
+            if (!string.IsNullOrEmpty(filterProjectSwimlane))
+            {
+                query = query.Where(m =>
+                    m.Name.Contains(filterProjectSwimlane.ToLower()) ||
+                    m.ProjectName.Contains(filterProjectSwimlane.ToLower())
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(SortBy))
+            {
+                string Sort = SortBy + " " + (Descending ? "desc" : "asc");
+                query = query.OrderBy(Sort);
+            }
+            else
+                query = query.OrderBy(m => m.Name);
+
+            var list = new PagedList<VW_ProjectSwimLane>(query, page, pageSize);
+            return list;
+        }
+
+        public async Task<IPagedList<VW_ProjectModules>> GetAllProjectModulesList(
+            string SiteId,
+            bool isShowCloseStatus,
+            string filterModule = "",
+            string LoggedUserId = "",
+            string employeeId = "",
+            List<string> ProjectModuleIds = null,
+            List<string> ProjectId = null,
+            List<string> ProjectModuleStatusIds = null,
+            string SortBy = "",
+            bool Descending = false,
+            int page = 1,
+            int pageSize = int.MaxValue)
+        {
+            var query = _vwProjectModulesRepository.TableNoTracking
+            .Include(x => x.Project.ProjectEmployeeMappings
+                .Where(m =>
+                    !m.Deleted &&
+                    m.EmployeeId == employeeId))
+            .ThenInclude(m => m.ProjectEmployeeRoleMappings)
+                .ThenInclude(r => r.SitesProjectRoles)
+                    .ThenInclude(r => r.SitesProjectRolesPermissions)
+            .Where(m => m.SiteId == SiteId);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+            // Get projects created by logged-in user
+            var createdProjectIds = new HashSet<string>(
+                await _projectRepository.TableNoTracking
+                    .Where(x =>
+                        !x.Deleted &&
+                        x.SiteId == SiteId &&
+                        x.CreatedById == LoggedUserId)
+                    .Select(x => x.Id)
+                    .ToListAsync()
+            );
+
+            if (!IsAdmin)
+            {
+                query = query.Where(x =>
+                createdProjectIds.Contains(x.ProjectId) ||
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+                            r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                                !p.Deleted &&
+                                (p.FullAccess || p.ViewOnly || p.Notes)
+                            )
+                        )
+                    )
+                );
+            }
+
+            if (ProjectModuleIds != null && ProjectModuleIds.Any())
+                query = query.Where(m => ProjectModuleIds.Contains(m.Id));
+
+            if (ProjectId != null && ProjectId.Any())
+                query = query.Where(m => ProjectId.Contains(m.ProjectId));
+
+            if (!string.IsNullOrEmpty(filterModule))
+            {
+                query = query.Where(m =>
+                    m.Name.Contains(filterModule.ToLower()) ||
+                    m.ProjectName.Contains(filterModule.ToLower()));
+            }
+
+            //if (isShowCloseStatus)
+            //    query = query.Where(x => x.ProjectModuleStatus == "Close");
+            //else
+            //    query = query.Where(x => x.ProjectModuleStatus != "Close");
+
+            if (ProjectModuleStatusIds != null && ProjectModuleStatusIds.Any())
+                query = query.Where(m => ProjectModuleStatusIds.Contains(m.ProjectModuleStatusId));
+            else if (!isShowCloseStatus)
+            {
+                // Only exclude Close when no specific status filter is selected
+                query = query.Where(x => x.ProjectModuleStatus != "Close");
+            }
+
+            if (!string.IsNullOrWhiteSpace(SortBy))
+            {
+                string Sort = SortBy + " " + (Descending ? "desc" : "asc");
+                query = query.OrderBy(Sort);
+            }
+            else
+                query = query.OrderBy(m => m.Name);
+
+            var list = new PagedList<VW_ProjectModules>(query, page, pageSize);
+
+            foreach (var item in list)
+            {
+                bool isProjectCreator =
+                    createdProjectIds.Contains(item.ProjectId);
+
+                var permissions = GetProjectPermissions(
+                     item.Project.ProjectEmployeeMappings,
+                     employeeId,
+                     IsAdmin,
+                     isProjectCreator);
+
+                item.CurrentUserManage = permissions.Manage;
+                item.CurrentUserView = permissions.View;
+                item.CurrentUserNotes = permissions.Notes;
+            }
+
+            return list;
+        }
+
+        public async Task<IPagedList<VW_Requirement>> GetAllRequirementList(
+            string SiteId,
+            string filterRequirement = "",
+            string LoggedUserId = "",
+            string employeeId = "",
+            List<string> ProjectId = null,
+            List<string> ProjectModuleId = null,
+            List<string> RequirementIds = null,
+            List<string> RequirementStatusIds = null,
+            string SortBy = "",
+            bool Descending = false,
+            int page = 1,
+            int pageSize = int.MaxValue
+        )
+        {
+            var query = _vwRequirementRepository.TableNoTracking
+                .Where(x => x.SiteId == SiteId);
+
+            bool isAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+
+            // Get projects created by the logged-in user
+            var createdProjectIds = new HashSet<string>(
+                await _projectRepository.TableNoTracking
+                    .Where(x =>
+                        !x.Deleted &&
+                        x.SiteId == SiteId &&
+                        x.CreatedById == LoggedUserId)
+                    .Select(x => x.Id)
+                    .ToListAsync()
+            );
+
+            // Project Security
+            if (!isAdmin)
+            {
+                query = query.Where(x =>
+                    // Project creator always has access
+                    createdProjectIds.Contains(x.ProjectId)
+
+                    ||
+
+                    // Employee has Manage / View / Notes permission
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+
+                            r.SitesProjectRoles != null &&
+
+                            r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                                !p.Deleted &&
+                                (
+                                    p.FullAccess ||
+                                    p.ViewOnly ||
+                                    p.Notes
+                                )
+                            )
+                        )
+                    )
+                );
+            }
+
+            // Project filter
+            if (ProjectId != null && ProjectId.Any())
+            {
+                query = query.Where(x =>
+                    ProjectId.Contains(x.ProjectId));
+            }
+
+            // Project Module filter
+            if (ProjectModuleId != null && ProjectModuleId.Any())
+            {
+                query = query.Where(x =>
+                    ProjectModuleId.Contains(x.ProjectModuleId));
+            }
+
+            // Requirement filter
+            if (RequirementIds != null && RequirementIds.Any())
+            {
+                query = query.Where(x =>
+                    RequirementIds.Contains(x.Id));
+            }
+
+            // Search
+            if (!string.IsNullOrWhiteSpace(filterRequirement))
+            {
+                var searchText = filterRequirement.Trim().ToLower();
+
+                query = query.Where(x =>
+                    (x.Title != null &&
+                     x.Title.ToLower().Contains(searchText))
+                    ||
+                    (x.ProjectName != null &&
+                     x.ProjectName.ToLower().Contains(searchText))
+                );
+            }
+
+            // Requirement Status filter
+            if (RequirementStatusIds != null && RequirementStatusIds.Any())
+            {
+                query = query.Where(x =>
+                    RequirementStatusIds.Contains(x.RequirementStatusId));
+            }
+
+            // Sorting
+            if (!string.IsNullOrWhiteSpace(SortBy))
+            {
+                string sort = SortBy + " " + (Descending ? "desc" : "asc");
+                query = query.OrderBy(sort);
+            }
+            else
+            {
+                query = query.OrderBy(x => x.Title);
+            }
+
+            var list = new PagedList<VW_Requirement>(
+                query,
+                page,
+                pageSize);
+
+            return list;
+        }
+
+        public async Task<IPagedList<VW_ProjectTask>> GetAllProjectTaskList(
+            string SiteId,
+            bool isShowCloseStatus,
+            string taskName,
+            string filterTask = "",
+            string LoggedUserId = "",
+            string employeeId = "",
+            List<string> ProjectId = null,
+            List<string> ProjectSwimlaneId = null,
+            List<string> ProjectModuleId = null,
+            List<string> RequirementId = null,
+            List<string> StatusId = null,
+            List<string> PriorityId = null,
+            List<string> AssignedToId = null,
+            List<string> tagIds = null,
+            string SortBy = "",
+            bool Descending = false,
+            int page = 1,
+            int pageSize = int.MaxValue)
+        {
+            var query = _vwProjectTaskRepository.TableNoTracking
+                        .Include(x => x.Project.ProjectEmployeeMappings
+                            .Where(m =>
+                                !m.Deleted &&
+                                m.EmployeeId == employeeId))
+                            .ThenInclude(m => m.ProjectEmployeeRoleMappings)
+                                .ThenInclude(r => r.SitesProjectRoles)
+                                    .ThenInclude(r => r.SitesProjectRolesPermissions)
+                        .Include(x => x.ProjectModule.ProjectModuleEmployeeMappings
+    .Where(m => !m.Deleted))
+                        .Include(x => x.ProjectActivities.Where(a => a.Active))
+                        .Where(x => x.SiteId == SiteId);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+            // Get projects created by logged-in user
+            var createdProjectIds = new HashSet<string>(
+                await _projectRepository.TableNoTracking
+                    .Where(x =>
+                        !x.Deleted &&
+                        x.SiteId == SiteId &&
+                        x.CreatedById == LoggedUserId)
+                    .Select(x => x.Id)
+                    .ToListAsync()
+            );
+
+            if (!IsAdmin)
+            {
+                query = query.Where(x =>
+                    createdProjectIds.Contains(x.ProjectId) ||
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+                            r.SitesProjectRoles
+                                .SitesProjectRolesPermissions
+                                .Any(p =>
+                                    !p.Deleted &&
+                                    (
+                                        p.FullAccess ||
+                                        p.ViewOnly ||
+                                        p.Notes
+                                    )
+                                )
+                        )
+                    )
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(taskName))
+            {
+                taskName = taskName.Trim().ToLower();
+                query = query.Where(x => x.TaskName.ToLower().Contains(taskName));
+            }
+
+            if (ProjectId != null && ProjectId.Any())
+                query = query.Where(m => ProjectId.Contains(m.ProjectId));
+
+            //if (ProjectSwimlaneId != null && ProjectSwimlaneId.Any())
+            //    query = query.Where(m => ProjectSwimlaneId.Contains(m.ProjectSwimlaneId));
+
+            if (ProjectModuleId != null && ProjectModuleId.Any())
+                query = query.Where(m => ProjectModuleId.Contains(m.ProjectModuleId));
+
+            if (RequirementId != null && RequirementId.Any())
+                query = query.Where(m => RequirementId.Contains(m.RequirementId));
+
+            //if (StatusId != null && StatusId.Any())
+            //    query = query.Where(m => StatusId.Contains(m.StatusId));
+
+            if (PriorityId != null && PriorityId.Any())
+                query = query.Where(m => PriorityId.Contains(m.PriorityId));
+
+            if (AssignedToId != null && AssignedToId.Any())
+                query = query.Where(m => AssignedToId.Contains(m.AssignedToId));
+
+            //if (isShowCloseStatus)
+            //    query = query.Where(x => x.Status == "Close");
+            //else if (StatusId != null && StatusId.Any())
+            //    query = query.Where(m => StatusId.Contains(m.StatusId));
+            //else
+            //    query = query.Where(x => x.Status != "Close");
+
+            // Status Logic
+            if (StatusId != null && StatusId.Any())
+            {
+                query = query.Where(m => StatusId.Contains(m.StatusId));
+            }
+            else if (!isShowCloseStatus)
+            {
+                // Only exclude Close when no specific status filter is selected
+                query = query.Where(x => x.Status != "Close");
+            }
+
+            if (!string.IsNullOrEmpty(filterTask))
+            {
+                query = query.Where(m =>
+                    m.TaskName.Contains(filterTask.ToLower()) ||
+                    m.ProjectName.Contains(filterTask.ToLower()) ||
+                    m.AssignTo.Contains(filterTask.ToLower()) ||
+                    m.ProjectTask_Tags.Contains(filterTask.ToLower()));
+            }
+
+            if (!string.IsNullOrWhiteSpace(SortBy))
+            {
+                string Sort = SortBy + " " + (Descending ? "desc" : "asc");
+                query = query.OrderBy(Sort);
+            }
+            else
+                query = query.OrderByDescending(m => m.CreatedOnUtc);
+
+            var userTaskTagList = await GetUserTaskTagListByUserId(LoggedUserId);
+            var list = new PagedList<VW_ProjectTask>(query, page, pageSize);
+            var taskList = list.ToList();
+
+            if (tagIds?.Any() == true)
+            {
+                taskList = taskList
+                    .Where(task =>
+                        userTaskTagList.Any(t =>
+                            t.TaskId == task.Id && tagIds.Contains(t.TagId)
+                        )
+                    )
+                    .ToList();
+            }
+
+            foreach (var task in taskList)
+            {
+                task.ProjectTask_Tags = string.Join(",",
+                    userTaskTagList
+                        .Where(x => x.TaskId == task.Id)
+                        .OrderBy(x => x.TagName)
+                        .Select(x => $"{x.TagId}:{x.TagName}:{x.Color}:{x.BgColor}")
+                );
+                if (task.Project != null)
+                {
+                    bool isProjectCreator =
+                        createdProjectIds.Contains(task.ProjectId);
+
+                    var permissions = GetProjectPermissions(
+                        task.Project.ProjectEmployeeMappings,
+                        employeeId,
+                        IsAdmin,
+                        isProjectCreator);
+
+                    task.CurrentUserManage = permissions.Manage;
+                    task.CurrentUserView = permissions.View;
+                    task.CurrentUserNotes = permissions.Notes;
+                }
+            }
+
+            return new PagedList<VW_ProjectTask>(taskList, page, pageSize);
+        }
+
+        public async Task<IPagedList<VW_ProjectTaskActivities>> GetAllProjectActivitiesList(
+            string SiteId,
+            bool isShowCloseStatus,
+            bool isShowCompletedStatus,
+            string filterActivity,
+            string projectId,
+            string LoggedUserId,
+            string employeeId,
+            string projectSwimlaneId,
+            string projectModuleId,
+            string projectTaskId,
+            string SortBy,
+            bool Descending,
+            int Page = 1,
+            int PageSize = int.MaxValue
+        )
+        {
+            var query = _vwProjectActivitiesRepository.TableNoTracking
+              .Include(x => x.Project.ProjectEmployeeMappings
+                    .Where(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId))
+                    .ThenInclude(m => m.ProjectEmployeeRoleMappings
+                        .Where(r => !r.Deleted))
+                    .ThenInclude(r => r.SitesProjectRoles)
+                    .ThenInclude(r => r.SitesProjectRolesPermissions
+                        .Where(p => !p.Deleted))
+                .Where(m => m.SiteId == SiteId);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+            // Get projects created by logged-in user
+            var createdProjectIds = new HashSet<string>(
+                await _projectRepository.TableNoTracking
+                    .Where(x =>
+                        !x.Deleted &&
+                        x.SiteId == SiteId &&
+                        x.CreatedById == LoggedUserId)
+                    .Select(x => x.Id)
+                    .ToListAsync()
+            );
+
+            if (!IsAdmin)
+            {
+                query = query.Where(x =>
+                    // Project creator
+                    createdProjectIds.Contains(x.ProjectId)
+                    ||
+                    // Employee project security
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+
+                            r.SitesProjectRoles
+                                .SitesProjectRolesPermissions
+                                .Any(p =>
+                                    !p.Deleted &&
+                                    (
+                                        p.FullAccess ||
+                                        p.ViewOnly ||
+                                        p.Notes
+                                    )
+                                )
+                        )
+                    )
+                );
+            }
+
+            if (!string.IsNullOrEmpty(projectId))
+                query = query.Where(m => m.ProjectId == projectId);
+
+            if (!string.IsNullOrEmpty(projectModuleId))
+                query = query.Where(m => m.ProjectModuleId == projectModuleId);
+
+            if (!string.IsNullOrEmpty(projectTaskId))
+                query = query.Where(m => m.ProjectTaskId == projectTaskId);
+
+            //if (isShowCloseStatus)
+            //    query = query.Where(x => x.Status == "Close");
+            //else
+            //    query = query.Where(x => x.Status != "Close");
+            // Handle Close + Completed filters for all combinations
+            if (!isShowCloseStatus && !isShowCompletedStatus)
+            {
+                // Hide both Close and Completed
+                query = query.Where(x => x.Status != "Close" && x.Status != "Completed");
+            }
+            else if (!isShowCloseStatus)
+            {
+                // Hide only Close
+                query = query.Where(x => x.Status != "Close");
+            }
+            else if (!isShowCompletedStatus)
+            {
+                // Hide only Completed
+                query = query.Where(x => x.Status != "Completed");
+            }
+
+            if (!string.IsNullOrEmpty(filterActivity))
+            {
+                query = query.Where(m =>
+                    m.ActivityName.Contains(filterActivity.ToLower()) ||
+                    m.ActivityOwner.Contains(filterActivity.ToLower()) ||
+                    m.Status.Contains(filterActivity.ToLower()));
+            }
+
+            //var targetMonth = ParseTargetMonth(targetMonthStr);
+            //if (!string.IsNullOrWhiteSpace(targetMonthStr))
+            //{
+            //    query = query.Where(x => x.TargetMonth == targetMonth);
+            //}
+
+            if (!string.IsNullOrWhiteSpace(SortBy))
+            {
+                string Sort = SortBy + " " + (Descending ? "desc" : "asc");
+                query = query.OrderBy(Sort);
+            }
+            else
+                query = query.OrderByDescending(m => m.CreatedOnUtc);
+
+            var list = new PagedList<VW_ProjectTaskActivities>(query, Page, PageSize);
+            // Set current user's permissions
+            foreach (var activity in list)
+            {
+                bool isProjectCreator =
+                    createdProjectIds.Contains(activity.ProjectId);
+
+                var permissions = GetProjectPermissions(
+                    activity.Project.ProjectEmployeeMappings,
+                    employeeId,
+                    IsAdmin,
+                    isProjectCreator);
+
+                activity.CurrentUserManage =
+                    permissions.Manage;
+
+                activity.CurrentUserView =
+                    permissions.View;
+
+                activity.CurrentUserNotes =
+                    permissions.Notes;
+            }
+
+            return list;
+        }
+
+        public VW_EmployeeTaskActivitySummary GetEmployeeTaskActivitySummary(string EmployeeId)
+        {
+            return _vwEmployeeTaskActivitySummaryRepository.TableNoTracking.FirstOrDefault(m => m.AssignToId == EmployeeId);
+        }
+
+        private async Task<bool> IsCurrentUserAdmin(string CId, string SiteId)
+        {
+            var userdata = await _userManager.FindByIdAsync(CId);
+            var user = await _userManager.FindByNameAsync(userdata.UserName);
+            //var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _applicationUserRoleService.GetRoleNamesByUserAndSite(user.Id, SiteId);
+            var isAdmin = roles.Contains("Admin") || roles.Contains("Site Super Admin") || roles.Contains("System Super Admin") || roles.Contains("Project Admin");
+
+            return isAdmin;
+        }
+        #endregion
+
+
+        private async Task<List<VW_UserTaskTags>> GetUserTaskTagListByUserId(string userId)
+        {
+            var userTaskTagList = await _vwUserTaskTagsRepository.TableNoTracking
+                                .Where(x => x.AspNetUserId == userId)
+                                .Select(x => new VW_UserTaskTags
+                                {
+                                    TaskId = x.TaskId,
+                                    TagId = x.TagId,
+                                    TagName = x.TagName,
+                                    Color = x.Color,
+                                    BgColor = x.BgColor,
+                                })
+                                .ToListAsync();
+
+            return userTaskTagList;
+        }
+        private async Task<List<string>> GetUserPinnedProjectIdListByUserId(string userId)
+        {
+            return await _vwUserProjectPinnedRepository.TableNoTracking
+                .Where(x => x.AspNetUserId == userId)
+                .Select(x => x.ProjectId)
+                .ToListAsync();
+        }
+        private async Task<List<VW_UserProjectColor>> GetUserProjectColorListByUserId(string userId)
+        {
+            return await _vwUserProjectColorRepository.TableNoTracking
+                .Where(x => x.AspNetUserId == userId)
+                .Select(x => new VW_UserProjectColor
+                {
+                    ProjectId = x.ProjectId,
+                    Color = x.Color
+                })
+                .ToListAsync();
+        }
+        private static (bool Manage, bool View, bool Notes) GetProjectPermissions(
+            IEnumerable<ProjectEmployeeMapping> employeeMappings,
+            string employeeId,
+            bool isAdmin,
+            bool isProjectCreator
+        )
+        {
+            if (isAdmin || isProjectCreator)
+                return (true, true, true);
+
+            var mappings = employeeMappings.Where(m =>
+                !m.Deleted &&
+                m.EmployeeId == employeeId);
+
+            return (
+                mappings.Any(m =>
+                    m.ProjectEmployeeRoleMappings.Any(r =>
+                        !r.Deleted &&
+                        r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                            !p.Deleted && p.FullAccess))),
+
+                mappings.Any(m =>
+                    m.ProjectEmployeeRoleMappings.Any(r =>
+                        !r.Deleted &&
+                        r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                            !p.Deleted && p.ViewOnly))),
+
+                mappings.Any(m =>
+                    m.ProjectEmployeeRoleMappings.Any(r =>
+                        !r.Deleted &&
+                        r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                            !p.Deleted && p.Notes)))
+            );
+        }
+    }
+}

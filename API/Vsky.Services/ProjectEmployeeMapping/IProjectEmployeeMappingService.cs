@@ -1,0 +1,47 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Vsky.Models;
+
+namespace Vsky.Services.ProjectEmployeeMappings
+{
+    public interface IProjectEmployeeMappingService
+    {
+        #region GetProjectEmployeeById
+        Task<ProjectEmployeeMapping> GetProjectEmployeeById(string id);
+        #endregion
+
+        #region GetProjectEmployeeByProjectId
+        List<ProjectEmployeeMapping> GetProjectEmployeeByProjectId(string ProjectId);
+        #endregion
+
+        #region InsertProjectEmployees
+        void InsertProjectEmployees(ProjectEmployeeMapping entity);
+        #endregion
+
+        #region UpdateProjectEmployees
+        void UpdateProjectEmployees(ProjectEmployeeMapping entity);
+        #endregion
+
+        #region DeleteProjectEmployees
+        void DeleteProjectEmployees(ProjectEmployeeMapping entity);
+        #endregion
+
+        #region GetProjectCharterEmployeesWithWeeklyPlanHoursByProjectId
+        // Title: GetProjectCharterEmployeesWithWeeklyPlanHoursByProjectId
+        Task<List<ProjectCharterEmployee>> GetProjectCharterEmployeesWithWeeklyPlanHoursByProjectId(string projectId, string taskId, DateTime? currentDate = null);
+        #endregion
+
+        #region GetProjectCharterEmployeeByProjectId
+        // Title: GetProjectCharterEmployeeByProjectId
+        Task<List<ProjectEmployeeMapping>> GetProjectEmployeesByProjectId(string projectId);
+        Task<List<CommonDropDown>> GetProjectCharterEmployeeByProjectId(string projectId);
+        Task<List<CommonDropDown>> GetProjectEmployeesByProjectIdAndReturnUserId(string projectId);
+        #endregion
+
+        #region GetProjectEmployeesByRoleId
+        // Title: GetProjectEmployeesByRoleId
+        List<ProjectEmployeeMapping> GetProjectEmployeesByRoleId(string projectId, string roleId);
+        #endregion
+    }
+}

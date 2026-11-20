@@ -1,0 +1,40 @@
+import { http } from "boot/axios";
+
+export default {
+  getRequirementDataMapping (requirementId) {
+    return http.get(`/requirement-data-mappings/get-data-mappings/${requirementId}`).then(response => response.data);
+  },
+
+  getAllRequirementDataMappingNotes (requirementDataMappingId) {
+    return http.get(`/requirement-data-mappings/get-data-mapping-notes/${requirementDataMappingId}`).then(response => response.data);
+  },
+
+  getAllRequirementDataMappingGroups (model) {
+    // return http.get("/requirement-data-mappings/get-all-data-mappings-group").then(response => response.data);
+    return http.post("/requirement-data-mappings/get-all-data-mappings-group", model).then(response => response.data);
+  },
+
+  getAllDataMappingByRequirementId (model) {
+    return http.post("/requirement-data-mappings/data-mappings-list", model).then(response => response.data);
+  },
+
+  saveRequirementDataMapping (model) {
+    return http.post("/requirement-data-mappings/save-data-mappings", model).then(response => response.data);
+  },
+
+  saveNote (model) {
+    return http.post("/requirement-data-mappings/save-note", model).then(response => response.data);
+  },
+
+  deleteDataMapping (id) {
+    return http.delete(`/requirement-data-mappings/${id}`).then(response => response.data);
+  },
+
+  deleteNote (id) {
+    return http.delete(`/requirement-data-mappings/delete-note/?id=${id}`).then(response => response.data);
+  },
+
+  deleteBulkDataMapping (requirementId) {
+    return http.delete(`/requirement-data-mappings/bulk-delete/${requirementId}`).then(response => response.data);
+  }
+};

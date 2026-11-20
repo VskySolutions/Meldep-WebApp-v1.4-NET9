@@ -1,0 +1,73 @@
+import { http } from "boot/axios";
+
+export default {
+  getAllTestCase (model) {
+    return http.post("/test-case/list", model).then(response => response.data);
+  },
+
+  // getTestCase (id) {
+  //   return http.get(`/test-case/${id}`).then(response => response.data);
+  // },
+
+  getTestCaseDetails (id) {
+    return http.get(`/test-case/details/${id}`).then(response => response.data);
+  },
+
+  getReleaseWiseTestCaseHistory (id) {
+    return http.get(`/test-case/history/${id}`).then(response => response.data);
+  },
+
+  // getReleaseWiseTestCaseHistoryByTestCaseIds(testCaseIds, versionNumber) {
+  //   return http.get(
+  //     `/test-case/history-by-testCaseIds/${testCaseIds.join(",")}?versionNumber=${versionNumber}`
+  //   ).then(r => r.data);
+  // },
+  getReleaseWiseTestCaseHistoryByTestCaseIds(testCaseIds, versionNumber) {
+    return http.post("/test-case/history-by-testCaseIds", {
+      testCaseIds,
+      versionNumber
+    }).then(r => r.data);
+  },
+
+  getStatusChangeLog(mappingId) {
+    return http.get(`test-case/change-log?mappingId=${mappingId}`).then(response => response.data);
+  },
+
+  saveTestCase (id, model) {
+    if (id) {
+      return http.put(`/test-case/${id}`, model).then(response => response.data);
+    } else {
+      return http.post("/test-case", model).then(response => response.data);
+    }
+  },
+
+  updateTestCaseStatus (id, statusId, mappingId) {
+    return http.put(`/test-case/updateTestCaseStatus/${id}/${statusId}/${mappingId}`, statusId).then(response => response.data);
+  },
+  deleteTestCase (id) {
+    return http.delete(`/test-case/${id}`).then(response => response.data);
+  },
+
+  // Excel import (backend generates/parses/validates/persists; see TestCaseController import/*)
+  downloadImportTemplate () {
+    return http.get("/test-case/import/template", { responseType: "blob" }).then(response => response.data);
+  },
+
+  previewImport (file) {
+    const formData = new FormData();
+    formData.append("File", file);
+    return http.post("/test-case/import/preview", formData, { headers: { "Content-Type": "multipart/form-data" } }).then(response => response.data);
+  },
+
+  confirmImport (rows) {
+    return http.post("/test-case/import/confirm", { rows }).then(response => response.data);
+  }
+
+  // getAllProjectModuleListForDropdown (projectId) {
+  //   return http.get(`/project-modules/dropdown/list?ProjectId=${projectId}`).then(response => response.data);
+  // },
+
+  // getAllModuleListByProject (projectId) {
+  //   return http.get(`/project-modules/listbyproject/?projectId=${projectId}`).then(response => response.data);
+  // }
+};

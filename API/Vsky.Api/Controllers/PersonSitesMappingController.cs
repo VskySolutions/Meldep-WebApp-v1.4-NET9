@@ -1,0 +1,349 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Vsky.Api.ApiErrors;
+using Vsky.Api.Extensions;
+using Vsky.Api.Models;
+using Vsky.Data;
+using Vsky.Models;
+using Vsky.Services.ApplicationUserRoles;
+using Vsky.Services.Common;
+using Vsky.Services.Messages;
+using Vsky.Services.Persons;
+using Vsky.Services.Sites;
+using Vsky.Services.SitesRole;
+using Vsky.Services.Users;
+
+namespace Vsky.Api.Controllers
+{
+    [Route("person-site-mapping")]
+    [SiteMember]
+    public class PersonSitesMappingController : BaseController
+    {
+        #region Define services
+        private readonly GlobalVariable _globalVariable;
+        private readonly IMapper _mapper;
+        private readonly ICommonService _commonService;
+        private readonly IWorkflowMessageService _workflowMessageService;
+        private readonly IUserService _userService;
+        private readonly ISiteService _siteService;
+        private readonly IPersonService _personService;
+        private readonly IPersonSitesMappingService _personSitesMappingService;
+        private readonly ApplicationDbContext _db;
+        private readonly ISitesRolesService _sitesRolesService;
+        private readonly IApplicationUserRoleService _applicationUserRoleService;
+        #endregion
+
+        #region Services initialization
+        public PersonSitesMappingController(
+            GlobalVariable globalVariable,
+            IMapper mapper,
+            ICommonService commonService,
+            IWorkflowMessageService workflowMessageService,
+            IUserService userService,
+            ISiteService siteService,
+            IPersonService PersonService,
+            IPersonSitesMappingService personSitesMappingService,
+            ApplicationDbContext db,
+            ISitesRolesService sitesRolesService,
+            IApplicationUserRoleService applicationUserRoleService
+        )
+        {
+            _globalVariable = globalVariable;
+            _mapper = mapper;
+            _commonService = commonService;
+            _workflowMessageService = workflowMessageService;
+            _userService = userService;
+            _siteService = siteService;
+            _personService = PersonService;
+            _personSitesMappingService = personSitesMappingService;
+            _db = db;
+            _sitesRolesService = sitesRolesService;
+            _applicationUserRoleService = applicationUserRoleService;
+        }
+        #endregion
+
+        #region GetAllSiteShare
+        [HttpPost("list")]
+        [ReadAccess]
+        public IActionResult GetAllSiteShare(PersonSitesSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                searchModel.SiteId = searchModel.SiteId != null ? searchModel.SiteId : SiteId;
+
+                var siteList = _personSitesMappingService.GetAllSiteShare(
+                    searchModel.SiteId, 
+                    searchModel.SearchText, 
+                    searchModel.PersonIds, 
+                    searchModel.PrimaryEmailAddress,
+                    searchModel.UserStatus,
+                    searchModel.IsSharedUser,
+                    searchModel.SortBy, 
+                    searchModel.Descending,
+                    searchModel.Page,
+                    searchModel.PageSize
+                );
+
+                var model = new PersonSitesListModel
+                {
+                    Data = _mapper.Map<IList<PersonSitesMappingModel>>(siteList),
+                    Total = siteList.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region GetAllSharedSitesByLoggedUserId
+        [HttpGet("my-share-sites-list")]
+        [AuthenticatedOnly]
+        public async Task<IActionResult> GetAllSharedSitesByLoggedUserId([FromServices] Vsky.Services.Authorization.ISiteAccessService siteAccessService)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                var allSites = await _personSitesMappingService.GetAllSharedSitesByLoggedUserId(LoggedUserId, SiteId);
+
+                // Offer only sites a switch would accept, so the menu has no dead choices.
+                var accessibleSiteIds = await siteAccessService.GetAccessibleSiteIdsAsync(LoggedUserId);
+                var list = allSites.Where(x => accessibleSiteIds.Contains(x.SiteId)).ToList();
+
+                var model = new PersonSitesListModel
+                {
+                    Data = _mapper.Map<IList<PersonSitesMappingModel>>(list),
+                    Total = list.Count
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region Create Site Share
+        [HttpPost("save-site-share-user")]
+        [RequireSiteAdmin]
+        public async Task<IActionResult> CreateSiteShareUser(SaveSiteSharing model, [FromServices] AdminAccess adminAccess)
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var LoggedUserId = User.GetLoggedInUserId<string>();
+                    //var SiteId = _globalVariable.SiteId;
+                    var SiteId = !string.IsNullOrEmpty(model.SiteId) ? model.SiteId : _globalVariable.SiteId;
+                    if (!await adminAccess.CanAdministerSiteAsync(LoggedUserId, SiteId))
+                        return AdminDenied.Result();
+
+                    if (model.RoleIds == null || !model.RoleIds.Any())
+                        return BadRequest(new { message = "Select at least one role." });
+
+                    var roleError = await adminAccess.ValidateGrantableSiteRolesAsync(LoggedUserId, SiteId, model.RoleIds);
+                    if (roleError != null)
+                        return BadRequest(new { message = roleError });
+
+                    var SiteData = await _siteService.GetById(SiteId);
+                    var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+                    //Get person by email
+                    //var person = await _personService.GetPersonByEmail(email);
+                    var person = await _personService.GetPersonByUserEmail(model.Email);
+                    if (person == null)
+                        return BadRequest(new { message = "User not found" });
+
+                    // Check if already exists in current site
+                    var existsInCurrentSite = await _personSitesMappingService.GetPersonInSite(person.Id, SiteId);
+                    if (existsInCurrentSite)
+                        return BadRequest(new { message = "User already exist" });
+
+                    // Check if exists in other site
+                    var existsInOtherSite = await _personSitesMappingService.GetPersonInOtherSite(person.Id, SiteId);
+                    if (!existsInOtherSite)
+                        return BadRequest(new { message = "User not found" });
+
+                    var personSiteMapping = new PersonSitesMapping();
+                    personSiteMapping.PersonId = person.Id;
+                    personSiteMapping.SiteId = SiteId;
+                    personSiteMapping.IsSharedUser = true;
+                    personSiteMapping.CreatedById = LoggedUserId;
+                    personSiteMapping.UpdatedById = LoggedUserId;
+                    personSiteMapping.CreatedOnUtc = GetDateTime;
+                    personSiteMapping.UpdatedOnUtc = GetDateTime;
+                    _personSitesMappingService.InsertPersonSites(personSiteMapping);
+
+                    var userId = await _userService.GetUserIdByPersonId(SiteId, person.Id);
+
+                    //var existingRoleIds = await _applicationUserRoleService.GetRoleIdsByUserAndSite(userId, SiteId);
+
+                    var roleIds = await _db.SitesRoles
+                        .Where(x => model.RoleIds.Contains(x.Id) && x.SiteId == SiteId && !x.Deleted)
+                        .Select(x => x.RoleId)
+                        .ToListAsync();
+
+                    foreach (var roleId in roleIds)
+                    {
+                        //if (!existingRoleIds.Contains(roleId))
+                        //{
+                        //    _applicationUserRoleService.InsertApplicationUserRole(new ApplicationUserRole
+                        //    {
+                        //        UserId = userId,
+                        //        RoleId = roleId,
+                        //        SiteId = SiteId
+                        //    });
+                        //}
+
+                        await _applicationUserRoleService.AddUserRoleAsync(
+                            userId,
+                            roleId,
+                            SiteId);
+                    }
+
+                    await _db.SaveChangesAsync();
+
+                    //await _db.SaveChangesAsync();
+
+                    // Send Invitation Email
+                    //var siteName = await GetSiteNameById(SiteId);
+                    //var invitedByName = await _personSitesMappingService.GetInvitedByCreatedById(personSiteMapping.CreatedById);
+
+                    //await _workflowMessageService.SendSiteShareInvitationMail(
+                    //    person,
+                    //    model.Email,
+                    //    siteName,
+                    //    invitedByName.CreatedBy.Person.FullName,
+                    //    SiteId
+                    //);
+
+                    return Ok(new { message = "User saved successfully" });
+                }
+                return ModelStateError(ModelState);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region Delete site share
+        [HttpDelete("{id}")]
+        [RequireSiteAdmin]
+        public async Task<IActionResult> DeleteSiteShare(string id, [FromServices] AdminAccess adminAccess)
+        {
+            try
+            {
+                //Find record
+                var entity = await _personSitesMappingService.GetById(id);
+                if (entity == null)
+                    return BadRequest(new BadRequestError("No user found with the specified id."));
+
+                // Roles are removed from the mapping's own site, never from the header's site
+                var SiteId = entity.SiteId;
+                if (!await adminAccess.CanAdministerSiteAsync(User.GetLoggedInUserId<string>(), SiteId))
+                    return AdminDenied.Result();
+
+                var userId = await _userService.GetUserIdByPersonId(SiteId, entity.PersonId);
+
+                //Remove user's role from ApplicationUserRole for this site
+
+                var userRoles = await _db.UserRoles.
+                    Where(x =>
+                        x.UserId == userId &&
+                        x.SiteId == SiteId
+                    ).ToListAsync();
+
+                if(userRoles.Any())
+                {
+                    _db.UserRoles.RemoveRange(userRoles);
+                }
+
+                // Direct grants and group memberships end with the share, so sharing again later
+                // starts clean instead of silently bringing back old access.
+                var groupMemberships = await _db.SecurityGroupMembers
+                    .Where(x => x.UserId == userId && x.SiteId == SiteId && !x.Deleted)
+                    .ToListAsync();
+                groupMemberships.ForEach(x => x.Deleted = true);
+
+                var directGrants = await _db.UserMenuPermissions
+                    .Where(x => x.UserId == userId && x.SiteId == SiteId && !x.Deleted)
+                    .ToListAsync();
+                directGrants.ForEach(x => x.Deleted = true);
+
+                _personSitesMappingService.DeletePersonSites(entity);
+
+                await _db.SaveChangesAsync();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        # region Update Last Used Site
+        [HttpPost("update-last-used-site")]
+        [AuthenticatedOnly]
+        public async Task<IActionResult> UpdateLastUsedSite(string siteId)
+        {
+            // The user always comes from the token, so nobody can change another person's site.
+            var userId = User.GetLoggedInUserId<string>();
+            var personId = await _db.Users
+                .Where(x => x.Id == userId)
+                .Select(x => x.PersonId)
+                .FirstOrDefaultAsync();
+
+            var personSites = await _personSitesMappingService.GetAllSitesByPersonId(personId);
+            if (personSites == null || !personSites.Any(x => x.SiteId == siteId))
+                return AdminDenied.Result();
+
+            // Uses the target site, so a user whose current site was revoked can still switch.
+            var SiteData = await _siteService.GetById(siteId);
+            if (SiteData == null)
+                return AdminDenied.Result();
+
+            var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+            if (personSites != null)
+            {
+                foreach (var personSite in personSites)
+                {
+                    personSite.LastUsed = personSite.SiteId == siteId ? true : false;
+                    personSite.UpdatedById = userId;
+                    personSite.UpdatedOnUtc = GetDateTime;
+
+                    _personSitesMappingService.UpdatePersonSites(personSite);
+                }
+            }
+            return Ok();
+        }
+        #endregion
+
+        #region Private Methods
+        private async Task<string> GetSiteNameById(string siteId)
+        {
+            var site = await _siteService.GetSiteNameById(siteId);
+            return site?.Name;
+        }
+        #endregion
+    }
+}

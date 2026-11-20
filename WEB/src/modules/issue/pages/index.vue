@@ -1,0 +1,1566 @@
+<template>
+  <q-page padding>
+    <q-card class="project6">
+      <q-card-section class="card-header with-tools">
+        <div class="row items-center">
+          <div class="col-12 col-md-2">
+            <q-breadcrumbs class="text-brown text-weight-bold text-h3">
+              <template #separator>
+                <q-icon size="1.5em" name="o_chevron_right" color="primary" />
+              </template>
+              <!-- <q-breadcrumbs-el label="Dashboard" icon="o_home" clickable to="/dashboard" /> -->
+              <q-breadcrumbs-el label="SDLC" />
+              <q-breadcrumbs-el label="Issues" />
+            </q-breadcrumbs>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="row items-center">
+              <span v-if="Object.keys(appliedFilters).length > 0" class="text-grey-10 text-caption" style="font-weight: 600;">Filters On :</span>
+              <q-chip v-for="(value, key) in appliedFilters" :key="key" class="bg-grey-3 text-grey-10 text-caption q-mr-xs filter-chip">
+                <q-badge v-if="getFilterCount(key) > 0" color="grey-7" floating>{{ getFilterCount(key) }}</q-badge>
+                {{ key }} <q-icon name="o_info" class="q-ml-xs" /> <q-icon name="o_clear" class="q-ml-xs" @click="onClearFilters(key)" /> <q-tooltip>{{ value }}</q-tooltip>
+              </q-chip>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="row items-center justify-end no-wrap">
+              <div class="row items-center q-mr-xs">
+                <div class="search-container position-relative">
+                  <searchFilterBar
+                    v-model="search.searchText"
+                    :loading="searchLoader"
+                    :applied-filters="appliedFilters"
+                    class="search-bar"
+                    @toggle-filter="showFilter = !showFilter"
+                  />
+                  <q-menu v-model="showFilter" anchor="bottom left" self="top left" persistent no-parent-event style="width: 450px;" @click-outside="showFilter = false">
+                    <q-card class="q-pa-sm">
+                      <div class="row items-center q-mb-sm">
+                        <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                          <label class="Cutomlabel q-mt-sm fs-13">Issue Id</label>
+                        </div>
+                        <div class="col-lg-7 col-md-7 col-sm-12 col-xs-12">
+                          <q-input v-model="search.issueNumber" fill-input class="q-mx-sm w-100 h-auto" :dense="true" />
+                        </div>
+                      </div>
+                      <multiSelectDropdown
+                        v-model="search.projectIds"
+                        label="Project Name"
+                        :options="projectNameDropdown.list.value"
+                        :filter="projectNameDropdown.filter"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.projectModuleIds"
+                        label="Project Module"
+                        :options="projectModulesByProjectIdForDropdown.list.value"
+                        :filter="projectModulesByProjectIdForDropdown.filter"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.requirementIds"
+                        label="Requirement"
+                        :options="requirementsByProjectModuleIdForDropdown.list.value"
+                        :filter="requirementsByProjectModuleIdForDropdown.filter"
+                      />
+                      <div class="row items-center q-mb-sm">
+                        <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                          <label class="Cutomlabel q-mt-sm fs-13">Issue Name</label>
+                        </div>
+                        <div class="col-lg-7 col-md-7 col-sm-12 col-xs-12">
+                          <q-input
+                            v-model="search.name"
+                            class="q-mx-sm w-100 h-auto"
+                            fill-input
+                            :dense="true"
+                          />
+                        </div>
+                      </div>
+                      <multiSelectDropdown
+                        v-model="search.priorityIds"
+                        label="Issue Priority"
+                        :options="issuePriorityForDropdown.list.value"
+                        :filter="issuePriorityForDropdown.filter"
+                        :isShowAll="true"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.statusIds"
+                        label="Status"
+                        :options="issueStatusForDropdown.list.value"
+                        :filter="issueStatusForDropdown.filter"
+                        :isShowAll="true"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.issueTypeIds"
+                        label="Issue Type"
+                        :options="issueTypeForDropdown.list.value"
+                        :filter="issueTypeForDropdown.filter"
+                        :isShowAll="true"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.employeeIds"
+                        label="Assign To"
+                        :options="activeEmployeesDropdown.list.value"
+                        :filter="activeEmployeesDropdown.filter"
+                      />
+                      <!-- Search and Clear Buttons -->
+                      <div class="row justify-end q-gutter-sm q-mb-sm">
+                        <q-btn style="width: 20%;" outline color="primary" label="Search" class="btnRounded" no-caps @click="() => { showFilter = false; onAdvanceSearch(); }" />
+                        <q-btn style="width: 20%;" outline color="grey-4" label="Clear" class="text-grey-9 btnRounded" no-caps @click="onAdvanceClear" />
+                        <q-btn style="width: 20%;" outline color="negative" label="Close" class="btnRounded" no-caps @click="() => { showFilter = false; }" />
+                      </div>
+                    </q-card>
+                  </q-menu>
+                </div>
+              </div>
+              <q-menu v-model="showManageDropdownOptions" anchor="bottom right" self="top right" no-parent-event style="width: 320px;">
+                <q-card class="q-pa-sm">
+                  <div class="text-subtitle2 q-mt-sm q-mb-sm">Manage Dropdown Options</div>
+                  <q-separator />
+                  <q-list style="min-width: 200px">
+                    <q-item
+                      v-for="opt in dropdownTypes"
+                      :key="opt.id"
+                      clickable
+                      :active="selectedField === opt.id"
+                      active-class="bg-primary text-white"
+                      @click="$router.push({ path: '/manage-dropdowns', state: { id: opt.id, groupName: opt.groupName, moduleName: opt.moduleName } })"
+                    >
+                      <q-item-section>{{ opt.type }}</q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-card>
+              </q-menu>
+              <q-menu v-model="showMultiSelectOptions" anchor="bottom right" self="top right" persistent no-parent-event style="width: 320px;">
+                <q-card class="q-pa-sm">
+                  <div class="text-subtitle2 q-mt-sm q-mb-sm">Click one of the options below</div><q-separator />
+                  <q-list style="min-width: 200px">
+                    <q-item
+                      v-for="opt in selectedFieldOptions"
+                      :key="opt.value"
+                      clickable
+                      :active="selectedField === opt.value"
+                      active-class="bg-primary text-white"
+                      @click="selectedField = opt.value"
+                    >
+                      <q-item-section avatar>
+                        <q-icon
+                          :name="opt.icon"
+                          size="xs"
+                          class="cursor-pointer"
+                          :color="selectedField === opt.value ? 'primary' : 'grey-7'"
+                        />
+                      </q-item-section>
+                      <q-item-section>{{ opt.label }}</q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-card>
+              </q-menu>
+              <div class="q-ml-xs">
+                <q-btn v-can v-if="!isViewer" icon="o_add" outline label="Create Issue" no-caps class="text-primary btnRounded" @click="onIssueAdd(refreshIssueList)" />
+                <q-btn
+                  v-if="!isViewer"
+                  icon="o_checklist"
+                  outline
+                  no-caps
+                  class="text-primary btnRounded q-ml-sm"
+                  :disabled="multiSelectIssueIds.length === 0 ||
+                  hasNonEditableSelectedIssue"
+                  @click.stop="showMultiSelectOptions = !showMultiSelectOptions"
+                >
+                  <q-badge v-if="multiSelectIssueIds?.length > 0" :label="multiSelectIssueIds.length" class="primary" floating />
+                  <q-tooltip>
+                    {{
+                      hasNonEditableSelectedIssue
+                        ? 'Some selected issues have only view permission.'
+                        : 'Multi Actions'
+                    }}
+                  </q-tooltip>
+                </q-btn>
+                <q-btn
+                  v-if="multiSelectIssueIds.length > 0"
+                  icon="o_restart_alt"
+                  outline
+                  no-caps
+                  class="text-primary btnRounded q-ml-sm"
+                  @click.stop="setDefaultsForMultiSelects"
+                >
+                  <q-tooltip>Unselect All Issues</q-tooltip>
+                </q-btn>
+                <q-btn v-if="role === 'admin' && !isViewer" icon="o_playlist_add" outline no-caps class="text-primary btnRounded q-ml-sm" @click="showManageDropdownOptions = !showManageDropdownOptions">
+                  <q-tooltip>Manage Dropdowns</q-tooltip>
+                </q-btn>
+                 <!-- Reset Column Width -->
+                <q-btn
+                  icon="o_refresh"
+                  outline
+                  no-caps
+                  class="text-primary btnRounded q-ml-sm"
+                  @click="resetColumnsWidth()"
+                >
+                  <q-tooltip>Reset Columns Width</q-tooltip>
+                </q-btn>
+                <!-- Column Hide/Show -->
+                <columnVisibilityMenu
+                  :all-column-names="allColumnNames"
+                  :selected-column-names="selectedColumnNames"
+                  @update:selected-column-names="selectedColumnNames = $event"
+                  @select-all-columns="selectAllColumns"
+                  @default-columns="defaultColumns"
+                />
+                <!-- Button to Open Sorting Dialog -->
+                <q-btn
+                  color="primary"
+                  icon="o_sort"
+                  class="btnRounded q-ml-sm"
+                  @click="showSortDialog = true"
+                >
+                  <q-badge v-if="selectedSortCount > 0" color="green" floating class="q-ml-xs">
+                    {{ selectedSortCount }}
+                  </q-badge>
+                  <q-tooltip>Sort</q-tooltip>
+                </q-btn>
+                <q-btn
+                  v-if="search.projectIds?.length > 0 && search.requirementIds?.length > 0"
+                  icon="o_chevron_left"
+                  outline
+                  label="Back"
+                  no-caps
+                  class="text-primary btnRounded no-space-between q-ml-sm"
+                  @click="$router.back()"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </q-card-section>
+      <q-separator />
+      <div class="table-issue">
+        <div class="table-scroll-container">
+          <q-table
+            ref="tableRef"
+            v-model:pagination="pagination"
+            :class="rows.length === 0 ? 'Custom-DataTable' : 'Custom-DataTable my-sticky-header-table'"
+            :loading="loading"
+            :rows="rows"
+            :columns="computedColumns"
+            row-key="id"
+            separator="cell"
+            no-data-label="No data available"
+            binary-state-sort
+            :rows-per-page-options="[20, 50, 100, 200, 500]"
+            @request="getAllIssue"
+          >
+            <template #loading>
+              <q-inner-loading showing color="primary">
+                <q-spinner-ios size="40px" class="q-mt-xl" />
+              </q-inner-loading>
+            </template>
+            <template #header="props">
+              <q-tr :props="props" class="bg-primary text-white">
+                <!-- <q-th
+                  v-if="!isViewer"
+                  auto-width
+                  class="text-center"
+                /> -->
+                <q-th
+                  v-if="!isViewer"
+                  auto-width
+                  class="text-center"
+                >
+                  <q-btn
+                    v-if="multiSelectIssueIds.length > 0"
+                    flat
+                    dense
+                    no-caps
+                    color="white"
+                    icon="o_restart_alt"
+                    @click.stop="setDefaultsForMultiSelects"
+                  >
+                    <q-tooltip>Unselect all issues</q-tooltip>
+                  </q-btn>
+                </q-th>
+                <!-- <q-th v-for="col in props.cols" :key="col.name" :props="props">{{ col.label }}</q-th> -->
+                <q-th
+                  v-for="col in props.cols"
+                  :key="col.name"
+                  :style="{
+                    width: (resizeWidths?.[col.name] || 120) + 'px',
+                    minWidth: '80px',
+                    position: 'relative'
+                  }"
+                >
+                  {{ col.label }}
+                  <!-- Sort icon only -->
+                  <q-icon
+                    v-if="col.sortable"
+                    :name=" pagination.sortBy === col.name ? (pagination.descending ? 'o_arrow_downward' : 'o_arrow_upward') : 'o_unfold_more' "
+                    size="16px"
+                    class="cursor-pointer q-ml-sm"
+                    @click.stop="sortColumn(col)"
+                  >
+                     <q-tooltip>
+                      {{ pagination.sortBy === col.name ? (pagination.descending ? 'Sort Ascending' : 'Sort Descending') : 'Sort' }}
+                    </q-tooltip>
+                  </q-icon>
+                  <div class="resize-handle" @mousedown="(e) => startResize(e, col.name)" />
+                </q-th>
+                <q-th auto-width class="text-center">Actions</q-th>
+              </q-tr>
+            </template>
+            <template #body="props">
+              <q-tr :props="props" :class="highlightedId == props.row.id ? 'highlight' : ''">
+                <q-td auto-width class="text-center hidden">
+                  <q-icon :name="isExpanded(props.row.id) ? '-' : '+'" class="cursor-pointer custom-plus-minus-icon" @click="toggleExpand(props.row.id)">
+                    <q-tooltip>{{ isExpanded(props.row.id) ? 'Collapse' : 'Expand' }}</q-tooltip>
+                  </q-icon>
+                </q-td>
+                <q-td
+                  v-if="!isViewer"
+                  class="text-center"
+                >
+                  <q-checkbox
+                    v-model="props.row.checkboxStatus"
+                    @update:model-value="
+                      onSelectCheckbox(
+                        props.row.project.id,
+                        props.row.project.name,
+                        props.row.id,
+                        props.row.issueNumber,
+                        props.row.name,
+                        $event,
+                        props.row.isEditable
+                      )
+                    "
+                  />
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('issueNumber')" class="text-right">
+                  #{{ props.row.issueNumber }}
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('project.name')" style="white-space: normal;" class="hoverable-cell">
+                  <div class="row no-wrap items-center justify-between">
+                    <span
+                      style="flex: 1; word-break: break-word; white-space: normal;"
+                      @click="onProjectView(props.row.project.id)"
+                    >
+                      {{ props.row.project.name }}
+                      <q-tooltip>View Project</q-tooltip>
+                    </span>
+                    <div class="row items-center q-gutter-sm q-ml-sm" style="flex-shrink: 0;">
+                      <q-icon
+                        name="o_radio_button_checked" size="xs"
+                        class="cursor-pointer"
+                        @click="setActiveRowIdInLocalStorage(props.row.id);
+                                $router.push({ path: '/project-center', state: { projectId: props.row.project.id } })"
+                      >
+                        <q-tooltip>Project Center</q-tooltip>
+                      </q-icon>
+                      <q-icon
+                        v-if="props.row.isEditable"
+                        name="o_developer_board" size="xs"
+                        class="cursor-pointer hidden"
+                        @click="setActiveRowIdInLocalStorage(props.row.id);
+                                $router.push({ path: '/project-planning/workboard', state: {projectId: props.row.project.id } })"
+                      >
+                        <q-tooltip>Work Board</q-tooltip>
+                      </q-icon>
+                      <!-- New info icon for issue status -->
+                      <!-- <q-icon name="o_info" size="xs" class="cursor-pointer text-primary" v-if="statusSummary.find(x => x.projectId === props.row.project.id)"> -->
+                      <q-icon name="o_info" size="xs" class="cursor-pointer text-primary">
+                        <q-tooltip anchor="bottom middle" self="top middle" class="bg-grey-8 text-white shadow-2">
+                          <div class="text-caption">
+                            <table class="table boarded statusTable">
+                              <thead>
+                                <tr>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.noStatus > 0">No Status</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.new > 0">New</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.newFromTestPlan > 0">Test Plan</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.toDo > 0">To Do</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inDevelopment > 0">In Development</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inReview > 0">In Review</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inTesting > 0">In Testing</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.reopen > 0">Reopen</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inUAT > 0">In UAT</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.uatPassed > 0">UAT Passed</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.convertedToTask > 0">Converted To Task</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.onHold > 0">On Hold</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.closed > 0">Closed</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.done > 0">Done</th>
+                                  <th v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.total > 0">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.noStatus > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.noStatus }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.new > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.new }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.newFromTestPlan > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.newFromTestPlan }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.toDo > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.toDo }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inDevelopment > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.inDevelopment }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inReview > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.inReview }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inTesting > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.inTesting }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.reopen > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.reopen }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.inUAT > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.inUAT }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.uatPassed > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.uatPassed }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.convertedToTask > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.convertedToTask }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.onHold > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.onHold }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.closed > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.closed }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.done > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.done }}</td>
+                                  <td v-if="statusSummary.find(x => x.projectId === props.row.project.id)?.total > 0" class="text-center">{{ statusSummary.find(x => x.projectId === props.row.project.id)?.total }}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </q-tooltip>
+                      </q-icon>
+                    </div>
+                  </div>
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('projectModule.name')" style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal;">
+                  {{ props.row.projectModule.name }}
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('requirement.requirementNumber')"
+                  class="common-q-td hoverable-cell"
+                  style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal;"
+                >
+                  <span v-if="props.row.requirement?.requirementNumber" @click="setActiveRowIdInLocalStorage(props.row.id);$router.push({ path: '/requirement-center', state: { requirementId: props.row.requirement?.id } })">
+                    #{{ props.row.requirement?.requirementNumber }}
+                    <q-tooltip>Requirement Center</q-tooltip>
+                  </span>
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('projectTaskRelatedMappings')">
+                  <span v-if="props.row.projectTaskRelatedMappings?.length">
+                    <template v-for="(item, index) in props.row.projectTaskRelatedMappings" :key="index">
+                      <span class="hoverable-cell" style="cursor: pointer;" @click="onProjectTaskView(item.taskId)">#{{ item.projectTask?.projectTaskNumber }}
+                        <span v-if="item.projectTask?.status">
+                          ({{ item.projectTask.status.dropDownValue }})
+                        </span>
+                        <q-tooltip>View Project Task</q-tooltip>
+                      </span>
+                      <span v-if="index < props.row.projectTaskRelatedMappings.length - 1">, </span>
+                      <br>
+                    </template>
+                  </span>
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('name')" style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal;">
+                  <span class="hoverable-cell" @click="onIssueView(props.row.id)">
+                    {{ props.row.name }}
+                    <q-tooltip>View Issue</q-tooltip>
+                  </span>
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('priority.dropDownValue')">
+                  {{ props.row.priority.dropDownValue }}
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('type.dropDownValue')">
+                  {{ props.row.type.dropDownValue }}
+                </q-td>
+                <q-td
+                  v-if="selectedColumnNames.includes('status.dropDownValue')"
+                  class="common-q-td"
+                  :class="{ 'hoverable-cell' : props.row.isEditable }"
+                  @click="activeEdit = { rowId: props.row.id, field: 'status' }"
+                >
+                  <quickEditSingleSelect
+                    field="status"
+                    :row-id="props.row.id"
+                    :value="props.row.status.id"
+                    :display-value="props.row.status.dropDownValue"
+                    :editable="props.row.isEditable"
+                    :options="issueStatusDropdownSingleSelect.list.value"
+                    :active-edit="activeEdit"
+                    :show-history="false"
+                    tooltip="Status Change Log"
+                    @cancel="activeEdit = { rowId: null, field: null }"
+                    @submit="({ rowId, value }) => onSubmitIssueStatus(rowId, value, refreshIssueList)"
+                  />
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('employee.person.firstName')">
+                  {{ props.row.employee.person.fullName }}
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('reportedBy.person.firstName')">
+                  {{ props.row.reportedBy.person.fullName }}
+                </q-td>
+                <q-td
+                  v-if="selectedColumnNames.includes('createdBy.person.firstName')"
+                  class="common-q-td"
+                >
+                  {{ props.row.createdBy.person.fullName }}
+                </q-td>
+                <q-td v-if="selectedColumnNames.includes('createdOnUtc')" class="text-center">
+                  {{ props.row.createdOnUtc }}
+                </q-td>
+                <q-td
+                  v-if="selectedColumnNames.includes('updatedBy.person.firstName')"
+                  class="common-q-td"
+                >
+                  {{ props.row.updatedBy.person.fullName }}
+                </q-td>
+                <q-td
+                  v-if="selectedColumnNames.includes('updatedOnUtc')"
+                  class="common-q-td"
+                >
+                  {{ props.row.updatedOnUtc }}
+                </q-td>
+                <q-td class="text-center actions">
+                  <q-icon
+                    name="o_visibility"
+                    class="cursor-pointer q-mr-sm"
+                    size="xs"
+                    @click="onIssueView(props.row.id)"
+                  >
+                    <q-tooltip>View</q-tooltip>
+                  </q-icon>
+                    <a
+                      v-if="props.row.isEditable || props.row.isNotes"
+                      style="position: relative;"
+                      class="q-icon notranslate cursor-pointer q-ml-sm q-mr-sm"
+                      @click="onNoteAdd(props.row.id, 'Issue', props.row.project.id, props.row.project.name, props.row.name,`${props.row.project.name} : ${props.row.name}`, refreshIssueList)"
+                    >
+                      <q-tooltip anchor="bottom middle" self="top middle">
+                        Note
+                      </q-tooltip>
+                      <q-icon name="o_assignment" />
+                      <q-badge
+                        v-if="props.row.issueNotesCount > 0"
+                        style="position: absolute; right: -16px; top: -15px;"
+                        color="green"
+                        text-color="white"
+                        :label="props.row.issueNotesCount"
+                      />
+                    </a>
+                    <q-btn
+                      v-if="props.row.isEditable"
+                      dense
+                      flat
+                      icon="o_more_vert"
+                      color="primary"
+                    >
+                      <q-tooltip>More Options</q-tooltip>
+                      <q-menu auto-close>
+                        <q-list style="min-width: 180px">
+                          <q-item
+                            v-ripple clickable
+                            @click="setActiveRowIdInLocalStorage(props.row.id); onIssueEdit(props.row.id, refreshIssueList)"
+                          >
+                            <q-item-section avatar><q-icon name="o_edit" size="xs" /></q-item-section>
+                            <q-item-section>Edit</q-item-section>
+                          </q-item>
+                          <q-item
+                            v-ripple clickable
+                            @click="setActiveRowIdInLocalStorage(props.row.id); onIssueStatusLog(props.row.id)"
+                          >
+                            <q-item-section avatar><q-icon name="o_groups" size="xs" /></q-item-section>
+                            <q-item-section>Issue Status change log</q-item-section>
+                          </q-item>
+                          <q-item
+                            v-ripple clickable
+                            :class="{ 'disabled-icon': props.row.status.dropDownValue === 'Converted to Task' }"
+                            @click="setActiveRowIdInLocalStorage(props.row.id); onConvertToTask(props.row.id, props.row.projectId, props.row.projectModuleId, props.row.requirement?.id, props.row.name, props.row.description, true)"
+                          >
+                            <q-item-section avatar><q-icon name="o_add" size="xs" /></q-item-section>
+                            <q-item-section>Convert into Task</q-item-section>
+                          </q-item>
+                          <q-item
+                            v-ripple clickable
+                            @click="setActiveRowIdInLocalStorage(props.row.id); onIssueAddActivity(props.row.id, refreshIssueList)"
+                          >
+                            <q-item-section avatar><q-icon name="o_description" size="xs" /></q-item-section>
+                            <q-item-section>Add Activities</q-item-section>
+                          </q-item>
+                          <q-item
+                            v-ripple
+                            clickable
+                            @click="onSubmitIssueDelete(props.row.id, props.row.name, refreshIssueList)"
+                          >
+                            <q-item-section avatar><q-icon name="o_delete_outline" color="negative" size="xs" /></q-item-section>
+                            <q-item-section class="text-negative">Delete</q-item-section>
+                          </q-item>
+                        </q-list>
+                      </q-menu>
+                    </q-btn>
+                </q-td>
+              </q-tr>
+              <q-tr v-if="props.pageIndex === rows.length - 1" class="hidden">
+                <q-td colspan="9" class="text-right"><b>Total  Issues:</b></q-td>
+                <q-td class="text-center"><b>{{ rows.length }}</b></q-td>
+                <q-td />
+              </q-tr><q-separator />
+            </template>
+          </q-table>
+        </div>
+      </div>
+    </q-card>
+  </q-page>
+  <!-- Multi-Column Level Sorting -->
+  <multiColumnSortingDialog
+    v-model="showSortDialog"
+    :columns="columns"
+    :multi-sort="multiSort"
+    @add="addSortLevel"
+    @remove="removeSortLevel"
+    @apply="applyMultiSort"
+  />
+</template>
+
+<script setup>
+// Import libraries
+import { ref, onMounted, watch, computed } from "vue";
+import { useQuasar } from "quasar";
+import { notifySuccess, notifyError, notifyWarning } from "assets/utils";
+import { useAuthStore } from "stores/auth";
+import { useRoute } from "vue-router";
+
+import issuesService from "modules/issue/issue.service";
+import taskService from "modules/project-tasks/projectTasks.service";
+import editProjectTask from "modules/project-tasks/components/addEdit.vue";
+import selectMultiIssue from "modules/issue/components/_multiIssueQuickActions.vue";
+import linkTaskToPlan from "modules/project-targetplan/components/_linkRequirementTaskIssueToWeeklyMonthlyPlan.vue";
+import manageDropdownsService from "modules/dropdown/dropdown.service";
+
+// SOP Change :- Shared DataTable Views
+import searchFilterBar from "src/components/dataTable/_searchFilterBar.vue";
+import quickEditSingleSelect from "src/components/dataTable/_quickEditSingleSelect.vue";
+import multiColumnSortingDialog from "src/components/dataTable/_multiColumnSortingDialog.vue";
+import columnVisibilityMenu from "src/components/dataTable/_columnVisibilityMenu.vue";
+
+// SOP Change :- Shared Inputs
+import multiSelectDropdown from "src/components/form-inputs/_multiSelectDropdown.vue";
+
+// SOP Change :- Shared Dropdowns
+import projectModule from "src/modules/project/utils/dropdowns.js";
+import projectModuleOfProjectModule from "src/modules/project-modules/utils/dropdowns.js";
+import issueModule from "src/modules/issue/utils/dropdowns.js";
+import employeeModule from "src/modules/employee/utils/dropdowns.js";
+import requirementModule from "src/modules/requirement/utils/dropdowns.js";
+
+// SOP Change :- Shared Scripts DataTable Features
+import { useColumnManager } from "composables/dataTable/useColumnManager.js";
+import useColumnResize from "composables/dataTable/useColumnResize.js";
+import useMultiSort from "composables/dataTable/useMultiSort.js";
+import useSiteTableState from "composables/dataTable/useSiteTableState.js";
+
+// Shared Issue Dialogs
+import {
+  initIssueDialogs,
+  onIssueView,
+  onIssueAdd,
+  onIssueEdit,
+  onIssueStatusLog,
+  onIssueAddActivity
+} from "src/modules/issue/utils/dialogs.js";
+
+// SOP Change :- Shared Project Dialogs
+import {
+  initProjectDialogs,
+  onProjectView
+} from "src/modules/project/utils/dialogs.js";
+
+// Shared Project Task Dialogs
+import {
+  initProjectTaskDialogs,
+  onProjectTaskView
+} from "src/modules/project-tasks/utils/dialogs.js";
+
+// Shared Common Dialogs
+import {
+  initCommonDialogs,
+  onNoteAdd
+} from "src/modules/common/utils/dialogs.js";
+
+import {
+  initRequirementDialogs,
+  onRequirementView
+} from "src/modules/requirement/utils/dialogs.js";
+
+// Shared Issue Actions
+import {
+  initIssueActions,
+  onSubmitIssueStatus,
+  onSubmitIssueDelete
+} from "src/modules/issue/utils/actions.js";
+
+// Common variables
+const $q = useQuasar();
+const expandedRows = ref([]);
+const loading = ref(true);
+const showFilter = ref(false);
+const searchLoader = ref(false);
+const statusSummary = ref([]);
+const showMultiSelectOptions = ref(false);
+const selectedField = ref(null);
+const authStore = useAuthStore();
+const user = authStore.user;
+const adminRoles = ["admin", "site-super-admin", "system-super-admin", "project admin"];
+const role = user?.roles?.some(r => adminRoles.includes(r)) ? "admin" : "";
+const isViewer = user?.roles?.some(r => r?.toLowerCase() === "viewer") ?? false;
+
+const route = useRoute();
+const processing = ref(false);
+const dropdownTypes = ref([]);
+const showManageDropdownOptions = ref(false);
+const showSortDialog = ref(false);
+const activeEdit = ref({ rowId: null, field: null });
+
+const highlightedId = computed(() => {
+  return activeRowId.value;
+});
+// const multiSelectIssueEditableMap = ref({});
+const SELECTED_ISSUE_IDS_KEY = "selectedIssueIds";
+const SELECTED_ISSUE_EDITABLE_MAP_KEY = "selectedIssueEditableMap";
+
+const getStoredSelectedIssueIds = () => {
+  try {
+    const stored = localStorage.getItem(SELECTED_ISSUE_IDS_KEY);
+
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn("Invalid selected issue IDs in localStorage. Resetting.", error);
+
+    localStorage.removeItem(SELECTED_ISSUE_IDS_KEY);
+    return [];
+  }
+};
+
+const getStoredSelectedIssueEditableMap = () => {
+  try {
+    const stored = localStorage.getItem(
+      SELECTED_ISSUE_EDITABLE_MAP_KEY
+    );
+
+    if (!stored) {
+      return {};
+    }
+
+    const parsed = JSON.parse(stored);
+
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch (error) {
+    console.warn(
+      "Invalid selected issue editable map in localStorage. Resetting.",
+      error
+    );
+
+    localStorage.removeItem(SELECTED_ISSUE_EDITABLE_MAP_KEY);
+    return {};
+  }
+};
+
+const multiSelectIssueIds = ref(getStoredSelectedIssueIds());
+
+const multiSelectIssueEditableMap = ref(
+  getStoredSelectedIssueEditableMap()
+);
+
+const hasNonEditableSelectedIssue = computed(() =>
+  multiSelectIssueIds.value.some(
+    id => multiSelectIssueEditableMap.value[id] !== true
+  )
+);
+
+function setActiveRowIdInLocalStorage(id) {
+  activeRowId.value = id;
+
+  saveDataTableState({
+    activeRowId: id
+  });
+}
+
+const isExpanded = (rowId) => {
+  return expandedRows.value.includes(rowId);
+};
+
+// Table variables
+const tableRef = ref();
+const rows = ref([]);
+const columns = ref([
+  { name: "issueNumber", label: "Id", field: "issueNumber", align: "left", sortable: true, default: true},
+  { name: "project.name", label: "Project Name", field: "project.name", align: "left", sortable: true, default: true },
+  { name: "projectModule.name", label: "Project Module", field: "projectModule.name", align: "left", sortable: true, default: true },
+  { name: "requirement.requirementNumber", label: "Req. No.", field: "requirement.requirementNumber", align: "left", sortable: true, default: false },
+  { name: "projectTaskRelatedMappings", label: "Task", field: "projectTaskRelatedMappings", align: "left", sortable: false, default: true },
+  { name: "name", label: "Issue Name", field: "name", align: "left", sortable: true, default: true },
+  { name: "priority.dropDownValue", label: "Priority", field: "priority.dropDownValue", align: "left", sortable: true, default: true },
+  { name: "type.dropDownValue", label: "Type", field: "type.dropDownValue", align: "left", sortable: true, default: true },
+  { name: "status.dropDownValue", label: "Status", field: "status.dropDownValue", align: "left", sortable: true, default: true },
+  { name: "employee.person.firstName", label: "Assign To", field: "employee.person.firstName", align: "left", sortable: true, default: true },
+  { name: "reportedBy.person.firstName", label: "Reported By", field: "reportedBy.person.firstName", align: "left", sortable: true, default: true },
+  { name: "createdBy.person.firstName", label: "Created By", field: "createdBy.person.firstName", align: "left", sortable: true, default: false },
+  { name: "createdOnUtc", label: "Created Date", field: "createdOnUtc", align: "center", sortable: true, default: true },
+  { name: "updatedBy.person.firstName", label: "Updated By", field: "updatedBy.person.firstName", align: "left", sortable: true, default: false },
+  { name: "updatedOnUtc", label: "Updated On", field: "updatedOnUtc", align: "left", sortable: true, default: false }
+]);
+
+// const handleDocumentClick = (event) => {
+//   const highlightElement = document.querySelector(".highlight");
+//   // Check if clicked inside the highlighted row or icons
+//   if (highlightElement && !highlightElement.contains(event.target)) {
+//     activeRowId.value = null;
+//     const storedData = getLocalStorage(localStorageKey) || {};
+//     setLocalStorage(localStorageKey, { ...storedData, activeRowId: null });
+//   }
+// };
+
+// ----------------------------------------------------------------------------------------------------------------
+// DataTable:- List -> Custom functions & Calculate Column Totals (SOP Change)
+// ----------------------------------------------------------------------------------------------------------------
+const refreshIssueList = () => {
+  getAllIssue({ pagination: pagination.value });
+};
+
+const sortColumn = (col) => {
+  if (!col.sortable) return;
+  if (pagination.value.sortBy === col.name) {
+    // Same column → toggle direction
+    pagination.value.descending = !pagination.value.descending;
+  }
+  else {
+    // New column → ascending
+      pagination.value.sortBy = col.name;
+      pagination.value.descending = false;
+  }
+  refreshIssueList();
+};
+
+// ------------------------------------------------------------------------------------
+// Advance Filter :- On Submit & Cancel
+// ------------------------------------------------------------------------------------
+
+// Search records as per parameters
+const onAdvanceSearch = () => {
+  refreshIssueList();
+};
+
+// Clear search
+const onAdvanceClear = () => {
+  search.value.issueNumber = undefined;
+  search.value.projectIds = [];
+  search.value.projectModuleIds = [];
+  search.value.requirementIds = [];
+  search.value.name = "";
+  search.value.priorityIds = [];
+  search.value.statusIds = [];
+  search.value.issueTypeIds = [];
+  search.value.employeeIds = [];
+  saveDataTableState({
+    search: search.value
+  });
+  onAdvanceSearch();
+};
+
+const {
+  search,
+  pagination,
+  activeRowId,
+  sorts,
+  resizeWidths,
+  selectedColumnNames,
+
+  saveDataTableState,
+  saveResizableWidthState,
+  saveColumnsState
+} = useSiteTableState({
+  storageKey: "issue-Index",
+  siteId: user?.siteId,
+
+  defaultSearch: {
+    searchText: "",
+    issueNumber: "",
+    projectIds: route.query.projectId && route.query.projectId !== ""
+      ? (Array.isArray(route.query.projectId)
+          ? route.query.projectId
+          : [route.query.projectId])
+      : [],
+    projectModuleIds: [],
+    requirementIds: [],
+    issueTypeIds: [],
+    priorityIds: [],
+    statusIds: [],
+    employeeIds: [],
+    name: null
+  },
+
+  defaultPagination: {
+    sortBy: "createdOnUtc",
+    descending: true,
+    rowsPerPage: 20,
+    page: 1
+  },
+
+  defaultSorts: {},
+
+  defaultResizableWidth: {},
+
+  defaultColumns: columns.value
+    .filter(col => col.default === true)
+    .map(col => col.name)
+});
+
+if (history.state?.projectId) {
+  search.value.projectIds = Array.isArray(history.state.projectId)
+    ? history.state.projectId
+    : [history.state.projectId];
+}
+
+if (history.state?.projectModuleId) {
+  search.value.projectModuleIds = Array.isArray(history.state.projectModuleId)
+    ? history.state.projectModuleId
+    : [history.state.projectModuleId];
+}
+
+if (history.state?.requirementId) {
+  search.value.requirementIds = Array.isArray(history.state.requirementId)
+    ? history.state.requirementId
+    : [history.state.requirementId];
+}
+
+const lsSorts = sorts.value || null;
+// ----------------------------------------------------------------------------------------------------------------
+// DataTable:- Column resize functionality (SOP Change)
+// ----------------------------------------------------------------------------------------------------------------
+
+const {
+  startResize,
+  resetColumnsWidth,
+  isResizing
+} = useColumnResize({
+  columns,
+  resizeWidths,
+  saveResizableWidthState
+});
+// ----------------------------------------------------------------------------------------------------------------
+// DataTable:- Hide/Show Columns (SOP Change)
+// ----------------------------------------------------------------------------------------------------------------
+
+const {
+  selectAllColumns,
+  defaultColumns,
+  allColumnNames,
+  computedColumns
+} = useColumnManager({
+  columns,
+  selectedColumnNames,
+  saveColumnsState,
+  isResizing
+});
+
+// ----------------------------------------------------------------------------------------------------------------
+// DataTable:- Sort Filter (SOP Change)
+// ----------------------------------------------------------------------------------------------------------------
+
+const {
+  multiSort,
+  addSortLevel,
+  removeSortLevel,
+  applyMultiSort,
+  selectedSortCount
+} = useMultiSort({
+  lsSorts,
+  saveDataTableState,
+  onApplySort: () => {
+    refreshIssueList();
+  }
+});
+
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+// DataTable:- Get Issue List
+// --------------------------------------------------------------------------------------------------------------------------------------------------
+
+const getAllIssue = async ({ pagination: p }) => {
+  const { page, rowsPerPage, sortBy, descending } = p;
+  loading.value = true;
+
+  let number = search.value.issueNumber
+    ? search.value.issueNumber.replace(/[^0-9]/g, "").replace(/^0+(?!$)/, "")
+    : "";
+
+  if (Number(number) > 2147483647) {
+    number = "";
+  }
+  search.value.issueNumber = number || "0";
+
+  const sorts = {};
+  const multi = multiSort.value;
+  for (let i = 0; i < multi.length; i++) {
+    const s = multi[i];
+    if (s.column && s.direction) {
+      sorts[s.column] = s.direction;
+    }
+  }
+
+  const payload = { page, pageSize: rowsPerPage, sortBy, descending, sorts, ...search.value };
+  saveDataTableState({
+    search: search.value,
+    pagination: p,
+    activeRowId: activeRowId.value,
+    sorts
+  });
+
+  const storedIssueIds = getStoredSelectedIssueIds();
+  issuesService.getAllIssue(payload).then((resp) => {
+    rows.value = resp.data.map(issue => {
+      const isEditable = issue?.project?.currentUserManage ?? false;
+
+      // Refresh permission for already selected issues
+      if (multiSelectIssueIds.value.includes(issue.id)) {
+        multiSelectIssueEditableMap.value[issue.id] = isEditable;
+      }
+
+      return {
+        ...issue,
+        checkboxStatus: storedIssueIds.includes(issue.id),
+        isNotes: issue.project?.currentUserNotes ?? false,
+        isEditable
+      };
+    });
+
+    localStorage.setItem(
+      SELECTED_ISSUE_EDITABLE_MAP_KEY,
+      JSON.stringify(multiSelectIssueEditableMap.value)
+    );
+    statusSummary.value = resp.statusSummary;
+    pagination.value = {
+      ...pagination.value,
+      page,
+      rowsPerPage,
+      sortBy,
+      descending,
+      rowsNumber: resp.total
+    };
+  }).finally(() => {
+    loading.value = false;
+    searchLoader.value = false;
+  });
+};
+
+function getDropdownTypeByModuleName (moduleName) {
+  manageDropdownsService.getDropdownTypeByModuleName(moduleName).then((resp) => {
+    dropdownTypes.value = resp;
+  });
+}
+
+// function disableOption (option) {
+//   return option.text && (option.text.toLowerCase() === "new" || option.text.toLowerCase() === "new from test plan");
+// }
+
+const toggleExpand = (rowId) => {
+  if (expandedRows.value.includes(rowId)) {
+    expandedRows.value = expandedRows.value.filter(id => id !== rowId);
+  } else {
+    expandedRows.value.push(rowId);
+  }
+};
+
+const onConvertToTask = (id, projectId, projectModuleId, requirementId, name, description, isIssueConverted) => {
+  activeRowId.value = id;
+  // Collect created task numbers from related mappings
+  const taskNumbers = [];
+  rows.value.filter(row => id === row.id).forEach(req => {
+    if (req.projectTaskRelatedMappings?.length) {
+      req.projectTaskRelatedMappings.forEach(mapping => {
+        if (mapping.projectTask?.projectTaskNumber) {
+          taskNumbers.push(mapping.projectTask.projectTaskNumber);
+        }
+      });
+    }
+  });
+  $q.dialog({
+    component: editProjectTask,
+    componentProps: { issueId: id, issueProjectId: projectId, issueModuleId: projectModuleId, requirementId, name, description, isIssueConverted, taskNumbers }
+  }).onOk(() => {
+    refreshIssueList();
+  }).onCancel(() => {
+  }).onDismiss(() => {
+    activeRowId.value = id;
+  });
+};
+
+const multiSelectRequirementProjectMap = ref({});
+const multiSelectProjectIds = ref([]);
+const multiSelectProjectName = ref([]);
+// const multiSelectIssueIds = ref([]);
+const multiSelectIssueNames = ref([]);
+const multiSelectIssueNumbers = ref([]);
+
+const onSelectCheckbox = (projectId, projectName, issueId, issueNumber, issueName, flag, isEditable) => {
+  if (flag === true) {
+    // Add the issueId to the multiSelectIssueIds array if it's not already present
+    if (!multiSelectIssueIds.value.includes(issueId)) {
+      multiSelectIssueIds.value.push(issueId);
+      multiSelectIssueNames.value.push(issueName);
+      multiSelectIssueNumbers.value.push(issueNumber);
+      multiSelectRequirementProjectMap.value[issueId] = projectId;
+
+      // Store Project Security permission for this issue
+      multiSelectIssueEditableMap.value[issueId] = isEditable === true;
+
+      // Add projectId only if not already present
+      if (!multiSelectProjectIds.value.includes(projectId)) {
+        multiSelectProjectIds.value.push(projectId);
+        multiSelectProjectName.value.push(projectName);
+      }
+    }
+  } else {
+    // Remove issue
+    const index = multiSelectIssueIds.value.indexOf(issueId);
+    const removedProjectId = multiSelectRequirementProjectMap.value[issueId];
+
+    if (index !== -1) {
+      multiSelectIssueIds.value.splice(index, 1);
+      multiSelectIssueNames.value.splice(index, 1);
+      multiSelectIssueNumbers.value.splice(index, 1);
+    }
+
+    delete multiSelectIssueEditableMap.value[issueId];
+    delete multiSelectRequirementProjectMap.value[issueId];
+
+    // If no other selected task belongs to that project, remove the projectId
+    const stillHasTaskForProject = Object.values(multiSelectRequirementProjectMap.value).some(pid => pid === removedProjectId);
+    if (!stillHasTaskForProject) {
+      multiSelectProjectIds.value = multiSelectProjectIds.value.filter(x => x !== removedProjectId);
+      multiSelectProjectName.value = multiSelectProjectName.value.filter(x => x !== projectName);
+    }
+  }
+  // Persist selected issue IDs
+  localStorage.setItem(
+    SELECTED_ISSUE_IDS_KEY,
+    JSON.stringify(multiSelectIssueIds.value)
+  );
+
+  // Persist permission map
+  localStorage.setItem(
+    SELECTED_ISSUE_EDITABLE_MAP_KEY,
+    JSON.stringify(multiSelectIssueEditableMap.value)
+  );
+};
+
+const selectedFieldOptions = [
+  // { label: "Link Issue To Plan", value: "linkToPlan", icon: "o_calendar_view_week" },
+  { label: "Change Status", value: "Status", icon: "o_flag" },
+  { label: "Change Priority", value: "Priority", icon: "o_priority_high" },
+  { label: "Convert into Task", value: "convertIntoTask", icon: "o_swap_horiz" }
+];
+
+const onSelectMultiOptions = () => {
+  if (hasNonEditableSelectedIssue.value) {
+    showMultiSelectOptions.value = false;
+
+    notifyWarning({
+      message: "Some selected issues have only view permission."
+    });
+
+    selectedField.value = null;
+    return;
+  }
+
+  if (multiSelectIssueIds.value.length === 0) return;
+  activeRowId.value = multiSelectIssueIds.value;
+  $q.dialog({
+    component: selectMultiIssue,
+    componentProps: { issueIds: multiSelectIssueIds.value, selectedField: selectedField.value }
+  }).onOk(() => {
+    setDefaultsForMultiSelects();
+    refreshIssueList();
+  }).onCancel(() => {
+    selectedField.value = null;
+  }).onDismiss(() => {
+    activeRowId.value = null;
+  });
+};
+
+const onLinkTaskToPlan = () => {
+  if (
+    multiSelectIssueIds.value.length === 0 ||
+    hasNonEditableSelectedIssue.value
+  ) {
+    notifyWarning({
+      message: "Some selected issues have only view permission."
+    });
+
+    selectedField.value = null;
+    return;
+  }
+  const props = {
+    projectId: multiSelectProjectIds.value[0],
+    projectName: multiSelectProjectName.value[0],
+    type: "Issue",
+    ids: multiSelectIssueIds.value,
+    numbers: multiSelectIssueNumbers.value,
+    names: multiSelectIssueNames.value,
+     shortDescriptions: null,
+    hasTaskLink: rows.value.some(
+      r => multiSelectIssueIds.value.includes(r.id) &&
+  (!r.projectTaskRelatedMappings?.length))
+  };
+  $q.dialog({
+    component: linkTaskToPlan,
+    componentProps: props
+  }).onOk(() => {
+    setDefaultsForMultiSelects();
+    refreshIssueList();
+  }).onCancel(() => {
+    selectedField.value = null;
+  }).onDismiss(() => {
+    activeRowId.value = null;
+  });
+};
+
+function onBulkIssuesConvertToTask (issueIds) {
+  if (
+    multiSelectIssueIds.value.length === 0 ||
+    hasNonEditableSelectedIssue.value
+  ) {
+    notifyWarning({
+      message: "Some selected issues have only view permission."
+    });
+
+    selectedField.value = null;
+    return;
+  }
+  const selectedIssues = rows.value.filter(row => issueIds.includes(row.id));
+  if (!selectedIssues.length) return;
+
+  const hasMissingModule = selectedIssues.some(issue => !issue.projectModuleId);
+  if (hasMissingModule) {
+    notifyError({ message: "Please select a project module for this issue before converting." });
+    selectedField.value = null;
+    return;
+  }
+  processing.value = true;
+  // Collect created tasks grouped by task name
+  const createdTasks = {};
+
+  selectedIssues.forEach(issue => {
+    if (issue.projectTaskRelatedMappings?.length) {
+      issue.projectTaskRelatedMappings.forEach(mapping => {
+        const issueName = issue.name || "Unnamed Issue";
+        const taskNumber = mapping.projectTask?.projectTaskNumber;
+
+        if (taskNumber) {
+          if (!createdTasks[issueName]) {
+            createdTasks[issueName] = [];
+          }
+          createdTasks[issueName].push(taskNumber);
+        }
+      });
+    }
+  });
+
+  const taskModels = selectedIssues.map(issue => {
+    return {
+      flag: "Add",
+      issueId: issue.id
+    };
+  });
+  const payload = {
+    isIssueConverted: true,
+    projectTaskModel: taskModels
+  };
+
+  let message = "<hr/>Are you sure you want to convert selected issues to task?";
+  const taskNames = Object.keys(createdTasks);
+
+  if (taskNames.length > 0) {
+    message += "<br/><br/><b>Already created task(s):</b><br/>";
+    message += "<table style='width:100%; border-collapse:collapse;' border='1' cellspacing='0' cellpadding='5'>";
+    message += "<tr><th>Issue Title</th><th>Task Numbers</th></tr>";
+
+    taskNames.forEach(name => {
+      const taskNumbers = createdTasks[name].map(num => `#${num}`).join(", ");
+      message += `<tr><td>${name}</td><td>${taskNumbers}</td></tr>`;
+    });
+
+    message += "</table>";
+  } else {
+    message += "<hr/>";
+  }
+  $q.dialog({
+    title: "<span class='text-primary''>Confirmation</span>",
+    message,
+    html: true,
+    ok: { label: "Yes", color: "primary" },
+    cancel: { label: "No", color: "negative" }
+  }).onOk(() => {
+    taskService.saveBulkTasks(payload)
+      .then(() => {
+        notifySuccess({ message: "Tasks are saved successfully." });
+        setDefaultsForMultiSelects();
+        refreshIssueList();
+      })
+      .finally(() => {
+        processing.value = false;
+      });
+  }).onCancel(() => {
+    selectedField.value = null;
+  });
+}
+
+// function setDefaultsForMultiSelects () {
+//   multiSelectProjectIds.value = [];
+//   multiSelectProjectName.value = [];
+
+//   multiSelectRequirementProjectMap.value = {};
+
+//   multiSelectIssueIds.value = [];
+//   multiSelectIssueNames.value = [];
+
+//   multiSelectIssueEditableMap.value = {};
+
+//   selectedField.value = null;
+//   showMultiSelectOptions.value = false;
+
+//   localStorage.removeItem(SELECTED_ISSUE_IDS_KEY);
+//   localStorage.removeItem(SELECTED_ISSUE_EDITABLE_MAP_KEY);
+
+//   // Reset checkbox state in the displayed rows
+//   rows.value.forEach(row => {
+//     row.checkboxStatus = false;
+//   });
+// }
+function setDefaultsForMultiSelects() {
+  // Clear all selected issue details
+  multiSelectProjectIds.value = [];
+  multiSelectProjectName.value = [];
+  multiSelectRequirementProjectMap.value = {};
+  multiSelectIssueIds.value = [];
+  multiSelectIssueNames.value = [];
+  multiSelectIssueNumbers.value = [];
+  multiSelectIssueEditableMap.value = {};
+
+  // Reset multi-action selection
+  selectedField.value = null;
+  showMultiSelectOptions.value = false;
+
+  // Clear persisted selections across pages
+  localStorage.removeItem(SELECTED_ISSUE_IDS_KEY);
+  localStorage.removeItem(SELECTED_ISSUE_EDITABLE_MAP_KEY);
+
+  // Uncheck all issues currently displayed
+  rows.value.forEach(row => {
+    row.checkboxStatus = false;
+  });
+}
+// ------------------------------------------------------------------------------------
+// DataTable:- Initialization Of Dialogs, Actions (SOP Change)
+// ------------------------------------------------------------------------------------
+initIssueDialogs(activeRowId);
+initProjectDialogs(activeRowId);
+initProjectTaskDialogs(activeRowId);
+initCommonDialogs(activeRowId);
+initRequirementDialogs(activeRowId);
+initIssueActions(activeRowId);
+
+// ----------------------------------------------------------------------------------------------------------------
+// Advance Filter:- Initialization Of All DropDowns
+// ----------------------------------------------------------------------------------------------------------------
+
+const { projectNameDropdown } = projectModule();
+const { projectModulesByProjectIdForDropdown } = projectModuleOfProjectModule();
+const { activeEmployeesDropdown } = employeeModule();
+const {
+  issueStatusForDropdown,
+  issuePriorityForDropdown,
+  issueTypeForDropdown,
+  issueStatusDropdownSingleSelect
+} = issueModule();
+const { requirementsByProjectModuleIdForDropdown } = requirementModule();
+
+// ----------------------------
+// Applied Filter Labels.
+// ----------------------------
+const mapFilterToLabel = (ids, list, label) => {
+  if (!Array.isArray(ids) || !ids.length) return {};
+
+  const text = ids
+    .map(id => {
+      const match = list.value.find(item => item.value === id);
+      return match ? match.text : id;
+    })
+    .join(", ");
+
+  return { [label]: text };
+};
+
+const appliedFilters = computed(() => ({
+  ...mapFilterToLabel(search.value.projectIds, projectNameDropdown.list, "Project Name"),
+  ...mapFilterToLabel(search.value.projectModuleIds, projectModulesByProjectIdForDropdown.list, "Project Module"),
+  ...mapFilterToLabel(search.value.requirementIds, requirementsByProjectModuleIdForDropdown.list, "Requirement"),
+  ...mapFilterToLabel(search.value.priorityIds, issuePriorityForDropdown.list, "Issue Priority"),
+  ...mapFilterToLabel(search.value.statusIds, issueStatusForDropdown.list, "Status"),
+  ...mapFilterToLabel(search.value.issueTypeIds, issueTypeForDropdown.list, "Issue Type"),
+  ...mapFilterToLabel(search.value.employeeIds, activeEmployeesDropdown.list, "Assign To"),
+  ...(search.value.issueNumber > 0 ? { "Issue Id": search.value.issueNumber } : {}),
+  ...(search.value.name ? { "Issue Name": search.value.name } : {})
+}));
+
+function getFilterCount (key) {
+  switch (key) {
+  case "Project Name": return search.value.projectIds?.length || 0;
+  case "Project Module": return search.value.projectModuleIds?.length || 0;
+  case "Requirement": return search.value.requirementIds?.length || 0;
+  case "Issue Priority": return search.value.priorityIds?.length || 0;
+  case "Status": return search.value.statusIds?.length || 0;
+  case "Issue Type": return search.value.issueTypeIds?.length || 0;
+  case "Assign To": return search.value.employeeIds?.length || 0;
+  default: return null;
+  }
+}
+
+function onClearFilters (key) {
+  if (key === "Project Name") {
+    search.value.projectIds = [];
+  } else if (key === "Project Module") {
+    search.value.projectModuleIds = [];
+    search.value.requirementIds = [];
+  } else if (key === "Requirement") {
+    search.value.requirementIds = [];
+  } else if (key === "Issue Priority") {
+    search.value.priorityIds = [];
+  } else if (key === "Status") {
+    search.value.statusIds = [];
+  } else if (key === "Issue Type") {
+    search.value.issueTypeIds = [];
+  } else if (key === "Assign To") {
+    search.value.employeeIds = [];
+  } else if (key === "Issue Id") {
+    search.value.issueNumber = "";
+  } else if (key === "Issue Name") {
+    search.value.name = "";
+  }
+  delete appliedFilters.value[key];
+  refreshIssueList();
+}
+
+// ----------------------------
+// Multi-Select change events
+// ----------------------------
+watch(selectedField, (newVal) => {
+  if (!newVal) return;
+
+  showMultiSelectOptions.value = false;
+
+  // Validate permissions before executing any bulk action
+  if (hasNonEditableSelectedIssue.value) {
+    notifyWarning({
+      message: "Some selected issues have only view permission."
+    });
+
+    selectedField.value = null;
+    return;
+  }
+
+  if (multiSelectIssueIds.value.length === 0) {
+    selectedField.value = null;
+    return;
+  }
+  if (newVal === "linkToPlan") {
+    if (multiSelectProjectIds.value.length > 1) {
+      $q.notify({
+        type: "warning",
+        message: "Cannot link plan: selected issues are of multiple projects."
+      });
+      selectedField.value = null;
+      return;
+    }
+    onLinkTaskToPlan();
+    return;
+  } else if (newVal === "convertIntoTask") {
+    onBulkIssuesConvertToTask(multiSelectIssueIds.value);
+    return;
+  }
+  onSelectMultiOptions(); // This opens the dialog for the selected action
+});
+
+watch(multiSelectIssueIds, () => {
+  if (multiSelectIssueIds.value.length === 0) {
+    showMultiSelectOptions.value = false;
+  }
+}, { deep: true });
+
+watch(() => search.value.projectIds, async (newValue, oldValue) => {
+  if (search.value?.projectIds?.length === 0) search.value.projectModuleIds = [];
+  if (search.value?.projectIds?.length === 0 || newValue === oldValue) return;
+
+  await projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
+}, { immediate: true });
+
+// Quick Search
+watch(() => search.value.searchText, () => {
+  searchLoader.value = true;
+  refreshIssueList();
+});
+
+watch(activeRowId, (val) => {
+  const formattedSorts = {};
+
+  for (const s of multiSort.value) {
+    if (s.column && s.direction) {
+      formattedSorts[s.column] = s.direction;
+    }
+  }
+
+  saveDataTableState({
+    search: search.value,
+    pagination: pagination.value,
+    activeRowId: val,
+    sorts: formattedSorts
+  });
+});
+
+watch(
+  () => [...(search.value.projectModuleIds || [])],
+  async (newValue, oldValue) => {
+    if (newValue.length === 0) {
+      search.value.requirementIds = [];
+      return;
+    }
+
+    await requirementsByProjectModuleIdForDropdown.load(newValue);
+  },
+  { immediate: true }
+);
+
+// ----------------------------------------------------------------------------------------------------------------
+// On page rendering
+// ----------------------------------------------------------------------------------------------------------------
+
+onMounted(async () => {
+  tableRef.value.requestServerInteraction();
+  activeEmployeesDropdown.load(user.siteId);
+  projectNameDropdown.load();
+  if (search.value.projectIds?.length > 0) projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
+  getDropdownTypeByModuleName("SDLC");
+  issuePriorityForDropdown.load("Issue Priority");
+  issueTypeForDropdown.load("Issue Type");
+  issueStatusDropdownSingleSelect.load("Issue Status");
+
+  await issueStatusForDropdown.load("Issue Status");
+  const issueStatus = issueStatusForDropdown.getValuesByLabels(["New", "New from Test Plan"]);
+  if (issueStatus.length && !search.value.statusIds?.length) {
+    search.value.statusIds = issueStatus;
+  }
+
+  if (!activeRowId.value) {
+    activeRowId.value = null;
+  }
+  if (search.value.projectModuleIds?.length > 0) requirementsByProjectModuleIdForDropdown.load(search.value.projectModuleIds);
+
+  // document.addEventListener("click", handleDocumentClick);
+  refreshIssueList();
+});
+
+</script>
+<style>
+.disabled-icon {
+  color: gray;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.table-issue .Custom-DataTable {
+  min-width: max-content;
+}
+</style>

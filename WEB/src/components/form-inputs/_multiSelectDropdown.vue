@@ -1,0 +1,235 @@
+<template>
+  <!-- <div class="row items-center q-mb-sm"> -->
+    <div :class="props.containerClass || 'row items-center q-mb-sm'">
+    <div v-if="props.label" class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+      <label class="Cutomlabel q-mt-sm fs-13">{{ props.label }}
+        <q-icon
+          v-if="labelTooltip"
+          name="o_info"
+          size="16px"
+          class="q-ml-xs cursor-pointer text-grey-7"
+        >
+          <q-tooltip
+            anchor="top middle"
+            self="bottom middle"
+            :offset="[0, 6]"
+          >
+            <div style="max-width: 320px; white-space: normal;">
+              {{ labelTooltip }}
+            </div>
+          </q-tooltip>
+        </q-icon>
+      </label>
+    </div>
+    <div
+      :class="[
+        props.label
+          ? 'col-lg-7 col-md-7 col-sm-12 col-xs-12'
+          : 'col-12'
+      ]"
+    >
+      <q-select
+        ref="selectRef"
+        v-model:input-value="inputValue"
+        :model-value="props.modelValue"
+
+        push
+        class="q-mx-sm w-100 h-auto"
+
+        clearable
+        use-input
+        use-chips
+        multiple
+        fill-input
+
+        transition-show="jump-up"
+        transition-hide="jump-up"
+        hide-bottom-space
+
+        :dense="true"
+        :disable="props.disable"
+
+        input-debounce="0"
+
+        :options="props.options"
+
+        option-value="value"
+        option-label="text"
+
+        map-options
+        emit-value
+
+        :popup-content-class="customPopupContentClass"
+
+        @update:model-value="updateValue"
+        @filter="handleFilter"
+
+        @blur="resetInput"
+        @popup-hide="resetInput"
+      >
+        <template #selected-item="{ opt, removeAtIndex, index }">
+          <q-chip
+            removable
+            dense
+            class="q-mr-xs"
+            @remove="removeAtIndex(index)"
+          >
+            <div class="ellipsis" style="max-width: 150px;">
+              {{ opt.text }}
+            </div>
+
+            <q-tooltip>
+              {{ opt.text }}
+            </q-tooltip>
+          </q-chip>
+        </template>
+        <template
+          v-if="props.options?.length > 0 && props.isShowAll"
+          #append
+        >
+          <q-checkbox
+            :model-value="isAllSelected"
+            @update:model-value="handleSelectAllOptions"
+          >
+            <q-tooltip>
+              Select All
+            </q-tooltip>
+          </q-checkbox>
+        </template>
+        <template #option="{ itemProps, opt, selected, toggleOption }">
+          <q-item v-bind="itemProps">
+            <q-item-section>
+              <div class="row q-col-gutter-x-md items-center selection-drodown-item">
+                <q-checkbox
+                  :model-value="selected"
+                  @update:model-value="toggleOption(opt)"
+                />
+                <!--Tags-->
+                <span
+                  v-if="showBgColor"
+                  :style="{
+                    backgroundColor: opt.bgColor || '#e0e0e0',
+                    color: opt.color || '#191919',
+                    padding: '3px 8px',
+                    borderRadius: '6px'
+                  }"
+                >
+                  {{ opt.text }}
+                </span>
+                <span v-else>{{ opt.text }}</span>
+              </div>
+            </q-item-section>
+          </q-item>
+        </template>
+      </q-select>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, nextTick } from "vue";
+
+const props = defineProps({
+  label: String,
+  modelValue: {
+    type: [Array, String],
+    default: () => []
+  },
+  options: {
+    type: Array,
+    default: () => []
+  },
+  filter: Function,
+  showBgColor: { type: Boolean, default: false },
+  disable: { type: Boolean, default: false },
+  isShowAll: {type: Boolean, default: false },
+  // Custom wrapper class
+  containerClass: {
+    type: String,
+    default: ""
+  },
+
+  // Custom input column class
+  inputClass: {
+    type: String,
+    default: ""
+  },
+  labelTooltip: {
+    type: String,
+    default: ""
+  }
+});
+
+const emit = defineEmits(["update:modelValue"]);
+
+const selectRef = ref(null);
+const inputValue = ref("");
+
+const isAllSelected = computed(() => {
+  return (
+    props.modelValue?.length > 0 &&
+    props.options?.length > 0 &&
+    props.modelValue.length === props.options.length
+  );
+});
+
+async function clearSearchInput() {
+  // Clear Vue value
+  inputValue.value = "";
+
+  // Clear Quasar internal input
+  if (selectRef.value) {
+    selectRef.value.updateInputValue("", true);
+  }
+
+  // Wait until DOM/component updates
+  await nextTick();
+
+  // Clear again after update
+  inputValue.value = "";
+
+  if (selectRef.value) {
+    selectRef.value.updateInputValue("", true);
+  }
+}
+
+function handleFilter(val, update, abort) {
+  if (props.filter) {
+    props.filter(val, update, abort);
+  } else {
+    update(() => {});
+  }
+}
+
+async function resetInput() {
+  await clearSearchInput();
+
+  if (props.filter) {
+    props.filter("", (callback) => callback());
+  }
+}
+
+async function updateValue(val) {
+  emit("update:modelValue", val);
+
+  // Clear immediately
+  await clearSearchInput();
+
+  // Reset filtering
+  if (props.filter) {
+    props.filter("", (callback) => {
+      callback();
+    });
+  }
+}
+
+async function handleSelectAllOptions(val) {
+  if (val) {
+    emit('update:modelValue', props.options.map(x => x.value));
+  } else {
+    emit('update:modelValue', []);
+  }
+  // Also clear any typed search text
+  await clearSearchInput();
+}
+</script>

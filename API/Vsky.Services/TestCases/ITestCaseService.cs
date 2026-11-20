@@ -1,0 +1,109 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Vsky.Core;
+using Vsky.Models;
+
+namespace Vsky.Services.TestCases
+{
+    public interface ITestCaseService
+    {
+        #region GetAllTestCases
+        Task<IPagedList<TestCase>> GetAllTestCases(
+            string SiteId, 
+            string LoggedUserId,
+            string employeeId,
+            string SearchText, 
+            int testCaseNumber, 
+            List<string> projectIds,
+            List<string> projectModuleIds,
+            List<string> requirementIds,
+            List<string> planIds, 
+            List<string> testedBys, 
+            List<string> statusIds,
+            string versionNumber,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue,
+            bool lookup = false
+        );
+        Task<IPagedList<TestCase>> GetAllTestCasesForDashboard(
+            string SiteId,
+            string LoggedUserId,
+            string employeeId,
+            string projectId, 
+            string sortBy, 
+            bool descending, 
+            int page = 1, 
+            int pageSize = int.MaxValue, 
+            bool lookup = false
+        );
+        #endregion
+
+        #region GetTestCaseById
+        Task<TestCase> GetTestCaseById(string id);
+        #endregion
+
+        #region GetLastTestCaseNumber
+        Task<int> GetLastTestCaseNumber();
+        #endregion
+
+        //#region GetTestCaseByPlanId
+        //Task<TestCase> GetTestCaseByPlanId(string PlanId, string id = null);
+        //#endregion
+
+        #region GetAllTestCasesListForDropdown
+        Task<List<TestCase>> GetAllTestCasesListForDropdown(string SiteId);
+        #endregion
+
+        #region GetTestCasesByRequirementId
+        Task<List<TestCase>> GetTestCasesByRequirementId(
+            string siteId,
+            string LoggedUserId,
+            string requirementId,
+            string SearchText,
+            int testCaseNumber,
+            List<string> planIds,
+            List<string> testedBys,
+            List<string> statusIds,
+            string versionNumber,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue,
+            bool lookup = false
+        );
+        #endregion
+
+        #region GetStatusChangeLog
+        Task<List<TestCaseStatusChangeLogDto>> GetStatusChangeLog(string mappingId, string siteId);
+        #endregion
+
+        #region GetTestCaseDetailsById
+        Task<TestCase> GetTestCaseDetailsById(string id);
+        #endregion
+
+        #region GetTestCaseByName
+        Task<TestCase> GetTestCaseByName(string siteId, string projectId, string testPlanId, string projectModuleId, string name, string id = null);
+        #endregion
+
+        #region InsertTestCase
+        void InsertTestCase(TestCase entity);
+        #endregion
+
+        #region UpdateTestCase
+        void UpdateTestCase(TestCase entity);
+        #endregion
+
+        #region DeleteTestCase
+        void DeleteTestCase(TestCase entity);
+        #endregion
+    }
+}

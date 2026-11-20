@@ -1,0 +1,488 @@
+<template>
+  <div>
+    <q-card flat bordered class="q-mb-md">
+      <q-tabs
+        v-model="leftTab"
+        dense
+        active-color="primary"
+        indicator-color="primary"
+        align="left"
+        inline-label
+      >
+        <q-tab name="requirementScope">
+          <div class="row items-center no-wrap">
+            Initial Scope
+            <q-icon
+              name="o_info"
+              size="16px"
+              class="q-ml-xs cursor-pointer text-grey-7"
+            >
+              <q-tooltip
+                anchor="top middle"
+                self="bottom middle"
+                :offset="[0, 6]"
+              >
+                <div style="max-width: 320px; white-space: normal;">
+                  Specific areas, processes, systems, or activities covered by the Requirement.
+                </div>
+              </q-tooltip>
+            </q-icon>
+          </div>
+        </q-tab>
+
+        <q-tab name="requirementDescription">
+          <div class="row items-center no-wrap">
+            REQ Log
+            <q-icon
+              name="o_info"
+              size="16px"
+              class="q-ml-xs cursor-pointer text-grey-7"
+            >
+              <q-tooltip
+                anchor="top middle"
+                self="bottom middle"
+                :offset="[0, 6]"
+              >
+                <div style="max-width: 320px; white-space: normal;">
+                  Detailed information about the Requirement.
+                </div>
+              </q-tooltip>
+           </q-icon>
+          </div>
+        </q-tab>
+
+        <q-tab name="requirementShortDescription" class="hidden">
+          <div class="row items-center no-wrap">
+            Requirement Short Description
+            <q-icon
+              name="o_info"
+              size="16px"
+              class="q-ml-xs cursor-pointer text-grey-7"
+            >
+              <q-tooltip
+                anchor="top middle"
+                self="bottom middle"
+                :offset="[0, 6]"
+              >
+                <div style="max-width: 320px; white-space: normal;">
+                  Description of the Requirement used in the Requirement List, Week Planner, and Monthly Planner.
+                </div>
+              </q-tooltip>
+            </q-icon>
+          </div>
+        </q-tab>
+
+        <q-tab name="notes">
+          <div class="row items-center no-wrap">
+            Notes
+          </div>
+        </q-tab>
+
+        <q-tab name="qAndA">
+          <div class="row items-center no-wrap">
+            Q&A
+            <q-badge
+              rounded
+              color="grey-3"
+              text-color="black"
+              class="q-ml-xs hidden"
+            >
+              {{ props.projectQACount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="tasks">
+          <div class="row items-center no-wrap">
+            Tasks
+            <q-badge
+              rounded
+              color="grey-3"
+              text-color="black"
+              class="q-ml-xs hidden"
+            >
+              {{ props.taskCount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="requirementDataMappings">
+          <div class="row items-center no-wrap">
+            REQ Data Mappings
+          </div>
+        </q-tab>
+
+
+        <q-tab name="requirementStatusTrackings">
+          <div class="row items-center no-wrap">
+            REQ Status Trackings
+          </div>
+        </q-tab>
+
+        <q-tab name="actionItems">
+          <div class="row items-center no-wrap">
+            Action Items
+            <q-badge
+              rounded
+              color="grey-3"
+              text-color="black"
+              class="q-ml-xs hidden"
+            >
+              {{ props.projectActionItemsCount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="timesheet">
+          <div class="row items-center no-wrap">
+            Timesheet
+            <q-badge rounded color="grey-3" text-color="black" class="q-ml-xs hidden">
+              {{ props.timesheetCount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="timesheetOverview">
+          <div class="row items-center no-wrap">
+            Timesheet Details
+          </div>
+        </q-tab>
+
+        <q-tab name="testCases">
+          <div class="row items-center no-wrap">
+            Test Cases
+            <q-badge rounded color="grey-3" text-color="black" class="q-ml-xs hidden">
+              {{ props.testCaseCount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="issues">
+          <div class="row items-center no-wrap">
+            Issues
+            <q-badge rounded color="grey-3" text-color="black" class="q-ml-xs hidden">
+              {{ props.issueCount }}
+            </q-badge>
+          </div>
+        </q-tab>
+
+        <q-tab name="requirementFiles">
+          <div class="row items-center no-wrap">
+            Requirement Files
+          </div>
+        </q-tab>
+
+        <q-tab name="requirementInfo">
+          <div class="row items-center no-wrap">
+            Requirement Info
+          </div>
+        </q-tab>
+
+      </q-tabs>
+    </q-card>
+
+    <!-- Content -->
+    <div class="row q-col-gutter-md">
+
+      <!-- Left List -->
+      <div class="col-12 col-md-12">
+
+        <q-tab-panels
+          v-model="leftTab"
+          animated
+          keep-alive
+        >
+          <q-tab-panel name="requirementDescription" class="q-pa-none">
+            <RequirementDescriptionDetails
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedReqDescription = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementScope" class="q-pa-none">
+            <RequirementScopeDetails
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedReqDescription = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementShortDescription" class="q-pa-none">
+            <RequirementShortDescriptionDetails
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedReqDescription = $event"
+            />
+          </q-tab-panel>
+          <q-tab-panel name="notes" class="q-pa-none">
+            <!-- Inner Notes Tabs -->
+            <q-tabs
+              v-model="activeNotesTab"
+              dense
+              indicator-color="primary"
+              active-color="primary"
+              active-class="bg-blue-1 borderRadiusTabs"
+              align="left"
+              narrow-indicator
+              inline-label
+              mobile-arrows
+            >
+              <q-tab name="clientMeetingUpdates" label="Client Meeting Updates" class="q-px-lg q-mr-md" />
+              <q-tab name="weeklyStatus" label="Weekly Status" class="q-px-lg q-mr-md" />
+              <q-tab name="weeklyNextSteps" label="Weekly Next Steps" class="q-px-lg q-mr-md" />
+              <q-tab name="roadblocks" label="Roadblocks" class="q-px-lg q-mr-md" />
+            </q-tabs>
+            <q-separator />
+            <!-- Inner Notes Tab Panels -->
+            <q-tab-panels v-model="activeNotesTab" animated>
+
+              <q-tab-panel name="clientMeetingUpdates" class="q-pa-none">
+                <viewClientMeetingUpdatesView
+                  :id="requirementId"
+                  :noteType="clientMeetingNoteType"
+                  :isRequirementCenter="true"
+                  @select="selectedClientMeetingUpdates = $event"
+                />
+              </q-tab-panel>
+
+              <q-tab-panel name="weeklyStatus" class="q-pa-none">
+                <viewClientMeetingUpdatesView
+                  :id="requirementId"
+                  :noteType="weeklyStatusNoteType"
+                  :isRequirementCenter="true"
+                  @select="selectedWeeklyStatus = $event"
+                />
+              </q-tab-panel>
+
+              <q-tab-panel name="weeklyNextSteps" class="q-pa-none">
+                <viewClientMeetingUpdatesView
+                  :id="requirementId"
+                  :noteType="weeklyNextStepNoteType"
+                  :isRequirementCenter="true"
+                  @select="selectedWeeklyNextSteps = $event"
+                />
+              </q-tab-panel>
+
+              <q-tab-panel name="roadblocks" class="q-pa-none">
+                <viewClientMeetingUpdatesView
+                  :id="requirementId"
+                  :noteType="roadBlockNoteType"
+                  :isRequirementCenter="true"
+                  @select="selectedRoadblocks = $event"
+                />
+              </q-tab-panel>
+
+            </q-tab-panels>
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementFiles" class="q-pa-none">
+            <RequirementFilesTabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedReqFiles = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementDataMappings" class="q-pa-none">
+            <RequirementDataMappingsTabularView
+              :requirement-id="requirementId"
+              :active-tab="leftTab"
+              @select="selectedReqDataMappings = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementStatusTrackings" class="q-pa-none">
+            <RequirementStatusTrackingsTabularView
+              :requirement-id="requirementId"
+              :active-tab="leftTab"
+              @select="selectedReqStatusTrackings = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="qAndA" class="q-pa-none">
+            <ProjectQATabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedQA = $event"
+              @count="projectQACount = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="actionItems" class="q-pa-none">
+            <ProjectActionItemsTabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedActionItems = $event"
+              @count="projectActionItemsCount = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="tasks" class="q-pa-none">
+            <TaskTabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedTask = $event"
+              @count="taskCount = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="timesheet" class="q-pa-none">
+            <TimesheetTabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="onSelectGroup"
+              @search-change="timesheetSearchModel = $event"
+            />
+          </q-tab-panel>
+          <q-tab-panel name="timesheetOverview" class="q-pa-none">
+            <TimesheetOverview
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedReqDescription = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="testCases" class="q-pa-none">
+            <TestCaseTabularView
+              :requirement-id="requirementId"
+              :project-id="projectId"
+              :active-tab="leftTab"
+              @select="selectedTestCase = $event"
+              @count="testCaseCount = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="issues" class="q-pa-none">
+            <IssueTabularView
+              :requirement-id="requirementId"
+              :active-tab="leftTab"
+              @select="selectedIssue = $event"
+              @count="issueCount = $event"
+            />
+          </q-tab-panel>
+
+          <q-tab-panel name="requirementInfo" class="q-pa-none">
+            <RequirementInfoDetails
+              :requirement-id="requirementId"
+              :active-tab="leftTab"
+              @select="selectedRequirementInfo = $event"
+            />
+          </q-tab-panel>
+        </q-tab-panels>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+
+import ProjectQATabularView from './tabularView/_projectQ&ATabularView.vue';
+import ProjectActionItemsTabularView from './tabularView/_projectActionItemsTabularView.vue';
+import TaskTabularView from './tabularView/_taskTabularView.vue';
+import TimesheetTabularView from './tabularView/_timesheetTabularView.vue';
+import TestCaseTabularView from './tabularView/_testCaseTabularView.vue';
+import IssueTabularView from './tabularView/_issueTabularView.vue';
+import RequirementDescriptionDetails from './details/_requirementDescriptionDetails.vue';
+import TimesheetOverview from './details/_timesheetOverview.vue';
+import RequirementInfoDetails from './details/_requirementInfoDetails.vue';
+import RequirementFilesTabularView from './tabularView/_requirementFilesTabularView.vue';
+import RequirementShortDescriptionDetails from './details/_requirementShortDescriptionDetails.vue';
+import RequirementScopeDetails from './details/_requirementScopeDetails.vue';
+import RequirementNoteDetails from './details/_requirementNoteDetails.vue';
+import RequirementDataMappingsTabularView from './tabularView/_requirementDataMappingTabularView.vue';
+import RequirementStatusTrackingsTabularView from './tabularView/_requirementStatusTrackingTabularView.vue';
+import viewClientMeetingUpdatesView from "src/modules/requirement/components/_clientMeetingUpdatesView.vue";
+
+const props = defineProps({
+  requirementId: String,
+  projectId: String,
+  taskCount: {
+    type: Number,
+    default: 0
+  },
+  testCaseCount: {
+    type: Number,
+    default: 0
+  },
+  issueCount: {
+    type: Number,
+    default: 0
+  },
+  timesheetCount: {
+    type: Number,
+    default: 0
+  },
+  projectQACount: {
+    type: Number,
+    default: 0
+  },
+  projectActionItemsCount: {
+    type: Number,
+    default: 0
+  }
+});
+
+const leftTab = ref('requirementDescription');
+const selectedTask = ref(null);
+const selectedTestCase = ref(null);
+const selectedIssue = ref(null);
+const selectedGroup = ref(null);
+const selectedQA = ref(null);
+const selectedReqDescription = ref(null);
+const selectedActionItems = ref(null);
+const selectedReqFiles = ref(null);
+const selectedReqDataMappings = ref(null);
+const selectedReqStatusTrackings = ref(null);
+const selectedClientMeetingUpdates = ref(null);
+const selectedWeeklyStatus = ref(null);
+const selectedWeeklyNextSteps = ref(null);
+const selectedRoadblocks = ref(null);
+const clientMeetingNoteType="Client Meeting Updates";
+const weeklyStatusNoteType="Weekly Status";
+const weeklyNextStepNoteType="Weekly Next Steps";
+const roadBlockNoteType="Roadblocks";
+const timesheetSearchModel = ref({});
+const activeNotesTab = ref('clientMeetingUpdates')
+
+const onSelectGroup = group => {
+  selectedGroup.value = group;
+};
+
+</script>
+<style>
+.full-height {
+  height: calc(100vh - 220px);
+}
+
+:deep(.q-tabs) {
+  background: #fff;
+}
+
+:deep(.q-tab) {
+  margin-right: 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+:deep(.q-tab--active) {
+  background: #1976d2;
+  color: white;
+}
+
+:deep(.q-tab__indicator) {
+  display: none;
+}
+</style>

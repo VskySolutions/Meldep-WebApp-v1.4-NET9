@@ -1,0 +1,1180 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.Design;
+using System.Linq;
+using System.Linq.Dynamic.Core;
+using System.Threading.Tasks;
+using MailKit.Search;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SendGrid.Helpers.Mail;
+using Vsky.Core;
+using Vsky.Data;
+using Vsky.Models;
+using Vsky.Services.ApplicationUserRoles;
+using Vsky.Services.Common;
+using Vsky.Services.Sites;
+
+namespace Vsky.Services.Requirements
+{
+    public class RequirementService : IRequirementService
+    {
+        #region Define Services
+        private readonly IRepository<Requirement> _requirementRepository;
+        private readonly IRepository<Notes> _notesRepository;
+        private readonly IRepository<ProjectTask> _projectTaskRepository;
+        private readonly IRepository<ProjectActivity> _projectActivityRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IRepository<VWProjectRequirementStatusSummary> _vWProjectRequirementStatusSummary;
+        private readonly ICommonService _commonService;
+        private readonly IApplicationUserRoleService _applicationUserRoleService;
+        #endregion
+
+        #region Services Initializations
+
+        public RequirementService(IRepository<Requirement> requirementRepository,
+            IRepository<Notes> notesRepository,
+            IRepository<ProjectTask> projectTaskRepository,
+            IRepository<ProjectActivity> projectActivityRepository,
+            UserManager<ApplicationUser> userManager,
+            IRepository<VWProjectRequirementStatusSummary> vWProjectRequirementStatusSummary,
+            ICommonService commonService,
+            IApplicationUserRoleService applicationUserRoleService
+        )
+        {
+            _requirementRepository = requirementRepository;
+            _notesRepository = notesRepository;
+            _projectTaskRepository = projectTaskRepository;
+            _projectActivityRepository = projectActivityRepository;
+            _userManager = userManager;
+            _vWProjectRequirementStatusSummary = vWProjectRequirementStatusSummary;
+            _commonService = commonService;
+            _applicationUserRoleService = applicationUserRoleService;
+        }
+
+        #endregion
+
+        #region Private Methods
+        // Title: GetOrderBy
+        // Description: This method returns the input string as it is, which can be used as the `ORDER BY` clause in a SQL query.
+        private static string GetOrderBy(string orderBy)
+        {
+            return orderBy;
+        }
+        #endregion
+
+        #region GetAllRequirements
+        // Title: GetAllRequirements
+        // Description: This method retrieves a paginated list of Requirement based on various search criteria such as name, 
+        // It also supports sorting and includes related data .The method allows for both full and lookup (limited) data retrieval modes.
+        public async Task<IPagedList<Requirement>> GetAllRequirements(
+            string SiteId,
+            string LoggedUserId,
+            string employeeId,
+            string SearchText,
+            int requirementNumber,
+            List<string> projectIds,
+            List<string> projectModuleIds,
+            List<string> requirementIds,
+            List<string> requirementGroupIds,
+            string name,
+            List<string> statusIds,
+            List<string> requirementTypeIds,
+            string identifiedUserTypeId,
+            List<string> identifiedCustomerIds,
+            List<string> identifiedEmployeeIds,
+            List<string> requirementTagIds,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue,
+            bool lookup = false)
+        {
+            //var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted);
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.SiteId == SiteId && !x.Project.Deleted && !x.Project.IsArchived);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+
+            if (!IsAdmin)
+            {
+                //query = query.Where(p => p.Project.ProjectUserMappings.Any(m => !m.Deleted && m.AspNetUserId == LoggedUserId && (m.FullAccess || m.ViewOnly || m.Notes)));
+                query = query.Where(x =>
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+                            r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                                !p.Deleted &&
+                                (p.FullAccess || p.ViewOnly || p.Notes)
+                            )
+                        )
+                    )
+                );
+            }
+
+            if (requirementNumber != 0)
+            {
+                query = query.Where(x => x.RequirementNumber == requirementNumber);
+            }
+
+            if (projectIds != null && projectIds.Any())
+                query = query.Where(x => projectIds.Contains(x.ProjectId));
+
+            if (projectModuleIds != null && projectModuleIds.Any())
+                query = query.Where(x => projectModuleIds.Contains(x.ProjectModuleId));
+
+            if (requirementIds != null && requirementIds.Any())
+                query = query.Where(x => requirementIds.Contains(x.Id));
+
+            if (statusIds != null && statusIds.Any())
+                query = query.Where(x => statusIds.Contains(x.StatusId));
+
+            if (requirementTypeIds != null && requirementTypeIds.Any())
+                query = query.Where(x => requirementTypeIds.Contains(x.RequirementTypeId));
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                name = name.Trim().ToLower();
+                query = query.Where(x => x.Title.ToLower().Contains(name));
+            }
+
+            if (!string.IsNullOrWhiteSpace(identifiedUserTypeId))
+                query = query.Where(x => x.IdentifiedUserType == identifiedUserTypeId);
+
+            if (identifiedCustomerIds != null && identifiedCustomerIds.Any())
+                query = query.Where(x => identifiedCustomerIds.Contains(x.IdentifiedCustomerId));
+
+            if (identifiedEmployeeIds != null && identifiedEmployeeIds.Any())
+                query = query.Where(x => identifiedEmployeeIds.Contains(x.IdentifiedEmployeeId));
+
+            if (requirementTagIds?.Any() == true)
+                query = query.Where(x => x.RequirementTags.Any(t => !t.Deleted && t.AspNetUserId == LoggedUserId && requirementTagIds.Contains(t.Tags.Id)));
+
+            //Search by FromDate and Todate
+            if (fromDate != null)
+                query = query.Where(x => x.CreatedOnUtc >= fromDate);
+            if (toDate != null)
+                query = query.Where(a => a.CreatedOnUtc <= toDate);
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
+
+                query = query
+                    .OrderByDescending(x => x.RequirementPinned
+                        .Any(p => p.AspNetUserId == LoggedUserId && p.IsPinned))
+                    .ThenBy(orderBy);
+            }
+            else
+            {
+                query = query
+                    .OrderByDescending(x => x.RequirementPinned
+                        .Any(p => p.AspNetUserId == LoggedUserId && p.IsPinned))
+                    .ThenByDescending(x => x.CreatedOnUtc);
+            }
+
+            if (!string.IsNullOrEmpty(SearchText))
+            {
+                DateTime.TryParse(SearchText, out var parsedDate);
+                query = query.Where(m =>
+                       m.RequirementNumber.ToString().Contains(SearchText.ToLower()) ||
+                       m.Project.Name.ToLower().Contains(SearchText.ToLower()) ||
+                       m.ProjectModule.Name.ToLower().Contains(SearchText.ToLower()) ||
+                       m.Title.ToLower().Contains(SearchText.ToLower()) ||
+                       m.Status.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       m.Priority.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       m.UserType.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       (m.Employee.Person.FirstName + " " + m.Employee.Person.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       m.CreatedOnUtc.Date == parsedDate.Date ||
+                       m.RequirementTags.Any(t => t.Tags.Name.ToLower().Contains(SearchText.ToLower())) ||
+                       m.Area.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       m.Workspace.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       m.RequirementType.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       m.SourceLabel.ToLower().Contains(SearchText.ToLower()) ||
+                       m.TargetLabel.ToLower().Contains(SearchText.ToLower()) ||
+                       m.IdentifiedDate == parsedDate.Date ||
+                       m.PlannedStartDate == parsedDate.Date ||
+                       m.PlannedEndDate == parsedDate.Date ||
+                       m.ActualStartDate == parsedDate.Date ||
+                       m.ActualEndDate == parsedDate.Date ||
+                       (m.RequirementEntered.Person.FirstName + " " + m.RequirementEntered.Person.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       (m.RequirementOwner.Person.FirstName + " " + m.RequirementOwner.Person.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       (m.CustomerOwner.FirstName + " " + m.CustomerOwner.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       m.ApprovalStatusDropDown.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
+                       (m.CreatedBy.Person.FirstName + " " + m.CreatedBy.Person.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       (m.UpdatedBy.Person.FirstName + " " + m.UpdatedBy.Person.LastName).ToLower().Contains(SearchText.ToLower()) ||
+                       (m.CreatedOnUtc.ToString().Contains(SearchText.ToLower())) 
+                       
+                );
+            }
+
+            // Apply multi-level dictionary sorting
+            if (sorts != null && sorts.Count > 0)
+            {
+                query = _commonService.ApplySorting(query, sorts);
+            }
+
+            var notesQuery = _notesRepository.TableNoTracking.Where(n => !n.Deleted && n.Type == "Requirement");
+            query = query.Select(x => new Requirement
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                ProjectModuleId = x.ProjectModuleId,
+                Title = x.Title,
+                StatusId = x.StatusId,
+                IdentifiedUserType = x.IdentifiedUserType,
+                RequirementNumber = x.RequirementNumber,
+                IdentifiedDate = x.IdentifiedDate,
+                PriorityId = x.PriorityId,
+                PlannedStartDate = x.PlannedStartDate,
+                PlannedEndDate = x.PlannedEndDate,
+                ActualStartDate = x.ActualStartDate,
+                ActualEndDate = x.ActualEndDate,
+                SourceLabel = x.SourceLabel,
+                TargetLabel = x.TargetLabel,
+                CreatedOnUtc = x.CreatedOnUtc,
+                UpdatedOnUtc = x.UpdatedOnUtc,
+                ShortDescription = x.ShortDescription,
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                Customer = new Person
+                {
+                    Id = x.Customer.Id,
+                    FullName = x.Customer.FirstName + " " + x.Customer.LastName,
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name,
+                    CurrentUserManage = 
+                    IsAdmin ||
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.FullAccess))),
+
+                    CurrentUserNotes =
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.Notes)))
+                },
+                ProjectModule = new ProjectModule
+                {
+                    Id = x.ProjectModule.Id,
+                    Name = x.ProjectModule.Name
+                },
+                Status = new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue
+                },
+                UserType = new DropDown
+                {
+                    Id = x.UserType.Id,
+                    DropDownValue = x.UserType.DropDownValue
+                },
+                Priority = new DropDown
+                {
+                    Id = x.Priority.Id,
+                    DropDownValue = x.Priority.DropDownValue
+                },
+                Area = new DropDown
+                {
+                    Id = x.Area.Id,
+                    DropDownValue = x.Area.DropDownValue
+                },
+                Workspace = new DropDown
+                {
+                    Id = x.Workspace.Id,
+                    DropDownValue = x.Workspace.DropDownValue
+                },
+                RequirementEntered = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.RequirementEntered.Person.Id,
+                        FullName = x.RequirementEntered.Person.FirstName + " " + x.RequirementEntered.Person.LastName,
+                    }
+                },
+                ConfirmedBy = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.ConfirmedBy.Person.Id,
+                        FullName = x.ConfirmedBy.Person.FirstName + " " + x.ConfirmedBy.Person.LastName,
+                    }
+                },
+                ApprovedBy = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.ApprovedBy.Person.Id,
+                        FullName = x.ApprovedBy.Person.FirstName + " " + x.ApprovedBy.Person.LastName,
+                    }
+                },
+                RequirementOwner = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.RequirementOwner.Person.Id,
+                        FullName = x.RequirementOwner.Person.FirstName + " " + x.RequirementOwner.Person.LastName,
+                    }
+                },
+                CustomerOwner = new Person
+                {
+                    Id = x.CustomerOwner.Id,
+                    FullName = x.CustomerOwner.FirstName + " " + x.CustomerOwner.LastName,
+                },
+                RequirementType = new DropDown
+                {
+                    Id = x.RequirementType.Id,
+                    DropDownValue = x.RequirementType.DropDownValue
+                },
+                CreatedBy = new ApplicationUser
+                {
+                    Person = new Person
+                    {
+                        Id = x.CreatedBy.PersonId,
+                        FullName = x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    }
+                },
+                UpdatedBy = new ApplicationUser
+                {
+                    Person = new Person
+                    {
+                        Id = x.UpdatedBy.PersonId,
+                        FullName = x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName,
+                    }
+                },
+                ApprovalStatusDropDown = new DropDown
+                {
+                    Id = x.ApprovalStatusDropDown.Id,
+                    DropDownValue = x.ApprovalStatusDropDown.DropDownValue
+                },
+                IsPinned = x.RequirementPinned.Any(p => p.AspNetUserId == LoggedUserId && p.IsPinned),
+                RequirementColor = x.RequirementColors.Where(c => c.AspNetUserId == LoggedUserId && !c.Deleted).Select(c => c.Color).FirstOrDefault(),
+                RequirementTags = x.RequirementTags.Where(t => !t.Deleted && !t.Tags.Deleted && t.AspNetUserId == LoggedUserId).OrderBy(t => t.Tags.Name).Select(t => new RequirementTags
+                {
+                    Id = t.Id,
+                    TagId = t.TagId,
+                    RequirementId = t.RequirementId,
+                    Tags = new Tags { Id = t.Tags.Id, Name = t.Tags.Name, Color = t.Tags.Color, BgColor = t.Tags.BgColor }
+                }).ToList(),
+                //ProjectTaskRelatedMappings = x.ProjectTaskRelatedMappings.Where(m => m.RequirementId == x.Id && !m.Deleted && m.RequirementId != null)
+                //.Select(m => new ProjectTaskRelatedMapping
+                //{
+                //    Id = m.Id,
+                //    TaskId = m.TaskId,
+                //    ProjectTask = new ProjectTask
+                //    {
+                //        ProjectTaskNumber = m.ProjectTask.ProjectTaskNumber,
+                //        Status = new DropDown { Id = m.ProjectTask.Status.Id, DropDownValue = m.ProjectTask.Status.DropDownValue }
+                //    }
+                //}).ToList(),
+                ProjectTaskRelatedMappings = x.ProjectTaskRelatedMappings.Where(m => m.RequirementId == x.Id && !m.Deleted && m.RequirementId != null)
+                .Select(m => new ProjectTask
+                {
+                    Id = m.Id,
+                    ProjectTaskNumber = m.ProjectTaskNumber,
+                    Status = new DropDown { Id = m.Status.Id, DropDownValue = m.Status.DropDownValue }
+                }).ToList(),
+                RequirementNotesCount = notesQuery.Where(m => m.SubModuleId == x.Id).Count(),
+                LastNote = notesQuery.Where(n => n.SubModuleId == x.Id).OrderByDescending(n => n.CreatedOnUtc).Select(n => n.Note).FirstOrDefault()
+            });
+
+            var list = new PagedList<Requirement>(query, page, pageSize);
+            return list;
+        }
+
+        public async Task<IPagedList<Requirement>> GetAllRequirementsForDashboard(
+            string SiteId, 
+            string LoggedUserId, 
+            string employeeId, 
+            string projectId, 
+            string sortBy, 
+            bool descending, 
+            int page = 1, 
+            int pageSize = int.MaxValue, 
+            bool lookup = false
+        )
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.SiteId == SiteId && x.ProjectId == projectId);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
+                query = query.OrderBy(orderBy);
+            }
+            else
+            {
+                query = query.OrderByDescending(x => x.CreatedOnUtc);
+            }
+            query = query.Select(x => new Requirement
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                Title = x.Title,
+                StatusId = x.StatusId,
+                IdentifiedDate = x.IdentifiedDate,
+                CloseDate = x.CloseDate,
+                Description = x.Description,
+                Notes = x.Notes,
+                EditingStatus = x.EditingStatus,
+                ApprovalStatus = x.ApprovalStatus,
+                IdentifiedCustomerId = x.IdentifiedCustomerId,
+                IdentifiedEmployeeId = x.IdentifiedEmployeeId,
+                IdentifiedUserType = x.IdentifiedUserType,
+                PriorityId = x.PriorityId,
+                RequirementEnteredBy = x.RequirementEnteredBy,
+                RequirementGroupId = x.RequirementGroupId,
+                RequirementNumber = x.RequirementNumber,
+                CreatedOnUtc = x.CreatedOnUtc,
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                RequirementEntered = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.RequirementEntered.Person.Id,
+                        FullName = x.RequirementEntered.Person.FirstName + " " + x.RequirementEntered.Person.LastName,
+                    }
+                },
+                Customer = new Person
+                {
+                    Id = x.Customer.Id,
+                    FullName = x.Customer.FirstName + " " + x.Customer.LastName,
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name,
+                    IsArchived = x.Project.IsArchived,
+                    CurrentUserManage =
+                    IsAdmin ||
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.FullAccess)))
+                },
+                Status = new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue
+                },
+                UserType = new DropDown
+                {
+                    Id = x.UserType.Id,
+                    DropDownValue = x.UserType.DropDownValue
+                },
+                Priority = new DropDown
+                {
+                    Id = x.Priority.Id,
+                    DropDownValue = x.Priority.DropDownValue
+                },
+                ApprovalStatusDropDown = new DropDown
+                {
+                    Id = x.ApprovalStatusDropDown.Id,
+                    DropDownValue = x.ApprovalStatusDropDown.DropDownValue
+                },
+                RequirementGroup = new RequirementGroup
+                {
+                    Id = x.RequirementGroup.Id,
+                    Name = x.RequirementGroup.Name
+                }
+            });
+
+            var list = new PagedList<Requirement>(query, page, pageSize);
+            return list;
+        }
+        #endregion
+
+        #region GetAllRequirementListForDropdown
+        public async Task<List<CommonDropDown>> GetAllRequirementListForDropdown(string siteId, string projectModuleId = null, string projectId = null, string requirementType = null)
+        {
+            var query = _requirementRepository.TableNoTracking
+                .Where(x => x.SiteId == siteId && !x.Deleted && !x.Project.Deleted && !x.ProjectModule.Deleted && !x.Project.IsTemplate && !x.Project.IsArchived);
+
+            if (!string.IsNullOrEmpty(requirementType) && requirementType != "undefined")
+                query = query.Where(x => x.RequirementType.DropDownValue.Contains(requirementType));
+
+            if (!string.IsNullOrWhiteSpace(projectModuleId))
+            {
+                var projectModuleIdArray = projectModuleId.Split(',');
+                query = query.Where(x => projectModuleIdArray.Contains(x.ProjectModuleId) && !x.ProjectModule.Deleted);
+            }
+
+            if (!string.IsNullOrWhiteSpace(projectId) && projectId != "undefined")
+            {
+                var projectIdArray = projectId.Split(',');
+                query = query.Where(x => projectIdArray.Contains(x.ProjectId) && !x.Project.Deleted);
+            }
+
+            var list = await query
+                 .OrderBy(x => x.Title.Replace(" ", ""))
+                 .Select(x => new CommonDropDown
+                 {
+                     Text = x.Title,
+                     Value = x.Id,
+                 }).ToListAsync();
+
+            return list;
+        }
+        #endregion
+
+        public List<VWProjectRequirementStatusSummary> GetRequirementStatusSummaryByProjectIds(List<string> projectIds)
+        {
+            var list = _vWProjectRequirementStatusSummary.TableNoTracking.Where(x => projectIds.Contains(x.ProjectId)).ToList();
+            return list;
+        }
+
+        #region GetAllRequirementsByProjectModuleId
+        public async Task<List<Requirement>> GetAllRequirementsByProjectModuleId(string moduleId)
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && !x.ProjectModule.Deleted && x.ProjectModuleId == moduleId);
+
+            query = query.OrderByDescending(x => x.CreatedOnUtc);
+            query = query.Select(x => new Requirement
+            {
+                Id = x.Id,
+                SiteId = x.SiteId,
+                ProjectId = x.ProjectId,
+                ProjectModuleId = x.ProjectModuleId,
+                Title = x.Title,
+                CreatedOnUtc = x.CreatedOnUtc
+            });
+
+            var list = await query.ToListAsync();
+            return list;
+        }
+        #endregion
+
+        #region GetRequirementById
+        // Title: GetRequirementById
+        // Description: This method retrieves a Requirement from the database by its unique identifier (`id`). 
+        public async Task<Requirement> GetRequirementById(string id)
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetLastRequirementNumber
+        // Title: GetLastRequirementNumber
+        // Description: This method retrieves the highest RequirementNumber by ordering the records in descending order, or returns 1 if no record exists.
+        public async Task<int> GetLastRequirementNumber()
+        {
+            var query = await _requirementRepository.TableNoTracking.OrderByDescending(m => m.RequirementNumber).FirstOrDefaultAsync();
+            return query == null ? 1 : query.RequirementNumber;
+        }
+        #endregion
+
+        #region GetRequirementDetailsById
+        // Title: GetRequirementDetailsById
+        // Description: The method selects relevant fields from the Requirement entity.
+        public async Task<Requirement> GetRequirementDetailsById(string id)
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+
+            var notesQuery = _notesRepository.TableNoTracking.Where(n => !n.Deleted && n.Type == "Requirement");
+
+            query = query.Select(x => new Requirement
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                ProjectModuleId = x.ProjectModuleId,
+                Title = x.Title,
+                AreaId = x.AreaId,
+                WorkspaceId = x.WorkspaceId,
+                ConfirmedById = x.ConfirmedById,
+                ApprovedById = x.ApprovedById,
+                RequirementOwnerId = x.RequirementOwnerId,
+                CustomerOwnerId = x.CustomerOwnerId,
+                StatusId = x.StatusId,
+                RequirementTypeId = x.RequirementTypeId,
+                IdentifiedDate = x.IdentifiedDate,
+                CloseDate = x.CloseDate,
+                Description = x.Description,
+                ShortDescription = x.ShortDescription,
+                Scope = x.Scope,
+                Notes = x.Notes,
+                ApprovalStatus = x.ApprovalStatus,
+                IdentifiedCustomerId = x.IdentifiedCustomerId,
+                IdentifiedEmployeeId = x.IdentifiedEmployeeId,
+                IdentifiedUserType = x.IdentifiedUserType,
+                PriorityId = x.PriorityId,
+                RequirementEnteredBy = x.RequirementEnteredBy,
+                RequirementGroupId = x.RequirementGroupId,
+                RequirementNumber = x.RequirementNumber,
+                PlannedStartDate = x.PlannedStartDate,
+                PlannedEndDate = x.PlannedEndDate,
+                ActualStartDate = x.ActualStartDate,
+                ActualEndDate = x.ActualEndDate,
+                SourceLabel = x.SourceLabel,
+                TargetLabel = x.TargetLabel,
+                CreatedOnUtc = x.CreatedOnUtc,
+                UpdatedOnUtc = x.UpdatedOnUtc,
+                Area = new DropDown
+                {
+                    Id = x.Area.Id,
+                    DropDownValue = x.Area.DropDownValue
+                },
+                Workspace = new DropDown
+                {
+                    Id = x.Workspace.Id,
+                    DropDownValue = x.Workspace.DropDownValue
+                },
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                RequirementEntered = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.RequirementEntered.Person.Id,
+                        FullName = x.RequirementEntered.Person.FirstName + " " + x.RequirementEntered.Person.LastName,
+                    }
+                },
+                ConfirmedBy = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.ConfirmedBy.Person.Id,
+                        FullName = x.ConfirmedBy.Person.FirstName + " " + x.ConfirmedBy.Person.LastName,
+                    }
+                },
+                ApprovedBy = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.ApprovedBy.Person.Id,
+                        FullName = x.ApprovedBy.Person.FirstName + " " + x.ApprovedBy.Person.LastName,
+                    }
+                },
+                RequirementOwner = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.RequirementOwner.Person.Id,
+                        FullName = x.RequirementOwner.Person.FirstName + " " + x.RequirementOwner.Person.LastName,
+                    }
+                },
+                CustomerOwner = new Person
+                {
+                    Id = x.CustomerOwner.Id,
+                    FullName = x.CustomerOwner.FirstName + " " + x.CustomerOwner.LastName,
+                },
+                Customer = new Person
+                {
+                    Id = x.Customer.Id,
+                    FullName = x.Customer.FirstName + " " + x.Customer.LastName,
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name,
+                    StartDate = x.Project.StartDate,
+                    GoLiveDate = x.Project.GoLiveDate
+                },
+                ProjectModule = new ProjectModule
+                {
+                    Id = x.ProjectModule.Id,
+                    Name = x.ProjectModule.Name,
+                    StartDate = x.ProjectModule.StartDate,
+                    EndDate = x.ProjectModule.EndDate
+                },
+                Status = new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue,
+                    BgColor = x.Status.BgColor,
+                    Color = x.Status.Color
+                },
+                UserType = new DropDown
+                {
+                    Id = x.UserType.Id,
+                    DropDownValue = x.UserType.DropDownValue
+                },
+                Priority = new DropDown
+                {
+                    Id = x.Priority.Id,
+                    DropDownValue = x.Priority.DropDownValue,
+                    BgColor = x.Priority.BgColor,
+                    Color = x.Priority.Color
+                },
+                ApprovalStatusDropDown = new DropDown
+                {
+                    Id = x.ApprovalStatusDropDown.Id,
+                    DropDownValue = x.ApprovalStatusDropDown.DropDownValue
+                },
+                RequirementType = new DropDown
+                {
+                    Id = x.RequirementType.Id,
+                    DropDownValue = x.RequirementType.DropDownValue
+                },
+                CreatedBy = new ApplicationUser
+                {
+                    Id = x.CreatedBy.Id,
+                    Person = new Person
+                    {
+                        Id = x.CreatedBy.PersonId,
+                        FirstName = x.CreatedBy.Person.FirstName,
+                        LastName = x.CreatedBy.Person.LastName,
+                    }
+                },
+                UpdatedBy = new ApplicationUser
+                {
+                    Id = x.UpdatedBy.Id,
+                    Person = new Person
+                    {
+                        Id = x.UpdatedBy.PersonId,
+                        FirstName = x.UpdatedBy.Person.FirstName,
+                        LastName = x.UpdatedBy.Person.LastName,
+                    }
+                },
+                FilePathDetails = x.FilePathDetails.Where(p => !p.Deleted).Select(p => new FilePathDetails
+                {
+                    Id = p.Id,
+                    FileName = p.FileName,
+                    FilePath = p.FilePath,
+                    Note = p.Note
+                }).ToList(),
+                RequirementChangeLog = x.RequirementChangeLog.Where(p => !p.Deleted)
+                .OrderByDescending(p => p.CreatedOnUtc)
+                .Select(p => new RequirementChangeLog
+                {
+                    Id = p.Id,
+                    RequirementLogDate = p.RequirementLogDate,
+                    Description = p.Description,
+                    RequirementName = p.RequirementName,
+                    EmployeeId = p.EmployeeId,
+                    CreatedOnUtc = p.CreatedOnUtc,
+                    Employee = new Employee
+                    {
+                        Person = new Person
+                        {
+                            Id = p.Employee.Person.Id,
+                            FullName = p.Employee.Person.FirstName + " " + p.Employee.Person.LastName,
+                        }
+                    },
+                }).ToList(),
+                //ProjectTaskRelatedMappings = x.ProjectTaskRelatedMappings.Where(m => m.RequirementId == x.Id && !m.Deleted && m.RequirementId != null)
+                //.Select(m => new ProjectTaskRelatedMapping
+                //{
+                //    Id = m.Id,
+                //    TaskId = m.TaskId,
+                //    ProjectTask = new ProjectTask
+                //    {
+                //        ProjectTaskNumber = m.ProjectTask.ProjectTaskNumber,
+                //        Status = new DropDown { Id = m.ProjectTask.Status.Id, DropDownValue = m.ProjectTask.Status.DropDownValue }
+                //    }
+                //}).ToList(),
+                ProjectTaskRelatedMappings = x.ProjectTaskRelatedMappings.Where(m => m.RequirementId == x.Id && !m.Deleted && m.RequirementId != null)
+                .Select(m => new ProjectTask
+                {
+                    Id = m.Id,
+                    ProjectTaskNumber = m.ProjectTaskNumber,
+                    Status = new DropDown { Id = m.Status.Id, DropDownValue = m.Status.DropDownValue }
+                }).ToList(),
+                LastNote = notesQuery.Where(n => n.SubModuleId == x.Id).OrderByDescending(n => n.CreatedOnUtc).Select(n => n.Note).FirstOrDefault(),
+                RequirementDataMapping = x.RequirementDataMapping.Where(d => !d.Deleted && d.RequirementId == x.Id)
+                .Select(d => new RequirementDataMapping
+                {
+                    Id = d.Id,
+                    Target = d.Target,
+                    Source = d.Source
+                }).ToList()
+            });
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetRequirementDescriptionById
+        // Title: GetRequirementDescriptionById
+        // Description: This method retrieves a description from the database by its unique identifier (`id`). 
+        public async Task<string> GetRequirementDescriptionById(string id)
+        {
+            var description = await _requirementRepository.TableNoTracking
+                .Where(x => !x.Deleted && x.Id == id)
+                .Select(x => x.Description)
+                .FirstOrDefaultAsync();
+
+            return description;
+        }
+        #endregion
+
+        #region GetRequirementByName
+        public async Task<Requirement> GetRequirementByName(string title, string ProjectId, string ProjectModuleId = null, string id = null)
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.Title.ToLower() == title.ToLower() && x.ProjectId == ProjectId);
+
+            if (!string.IsNullOrEmpty(id))
+                query = query.Where(x => x.Id != id);
+
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetRequirementsByProjectModuleId
+        public async Task<List<Requirement>> GetRequirementsByProjectModuleId(string siteId, string projectModuleId)
+        {
+            var query = _requirementRepository.TableNoTracking.Where(x => !x.Deleted && x.SiteId == siteId && x.ProjectModuleId == projectModuleId);
+
+            return await query.ToListAsync();
+        }
+        #endregion
+
+        #region GetAllRequirementDescriptionsById
+        public async Task<List<Requirement>> GetAllRequirementDescriptionsById(string siteId, string id, bool latestOnTop)
+        {
+            var query = _requirementRepository.TableNoTracking
+                .Where(x => !x.Deleted && x.SiteId == siteId && x.Id == id);
+
+            return await query
+                .Select(x => new Requirement
+                {
+                    Id = x.Id,
+                    Description = x.Description,
+                    CreatedById = x.CreatedById,
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    EditingStatus = x.EditingStatus,
+                    RequirementChangeLog = latestOnTop
+                                        ? x.RequirementChangeLog
+                                            .Where(d => !d.Deleted)
+                                            .OrderByDescending(d => d.CreatedOnUtc)
+                                            .ThenByDescending(d => d.Id)
+                                            .Select(d => new RequirementChangeLog
+                                            {
+                                                Id = d.Id,
+                                                Description = d.Description,
+                                                CreatedById = d.CreatedById,
+                                                CreatedOnUtc = d.CreatedOnUtc,
+                                                CreatedBy = new ApplicationUser
+                                                {
+                                                    Id = d.CreatedBy.Id,
+                                                    UserName = d.CreatedBy.UserName,
+                                                    Person = new Person
+                                                    {
+                                                        Id = d.CreatedBy.PersonId,
+                                                        FullName = d.CreatedBy.Person.FirstName + " " +
+                                                                   d.CreatedBy.Person.LastName
+                                                    }
+                                                }
+                                            })
+                                            .ToList()
+                                        : x.RequirementChangeLog
+                                            .Where(d => !d.Deleted)
+                                            .OrderBy(d => d.CreatedOnUtc)
+                                            .ThenBy(d => d.Id)
+                                            .Select(d => new RequirementChangeLog
+                                            {
+                                                Id = d.Id,
+                                                Description = d.Description,
+                                                CreatedById = d.CreatedById,
+                                                CreatedOnUtc = d.CreatedOnUtc,
+                                                CreatedBy = new ApplicationUser
+                                                {
+                                                    Id = d.CreatedBy.Id,
+                                                    UserName = d.CreatedBy.UserName,
+                                                    Person = new Person
+                                                    {
+                                                        Id = d.CreatedBy.PersonId,
+                                                        FullName = d.CreatedBy.Person.FirstName + " " +
+                                                                   d.CreatedBy.Person.LastName
+                                                    }
+                                                }
+                                            })
+                                            .ToList(),
+
+                    CreatedBy = new ApplicationUser
+                    {
+                        Id = x.CreatedBy.Id,
+                        UserName = x.CreatedBy.UserName,
+                        Person = new Person
+                        {
+                            FullName = x.CreatedBy.Person.FirstName + " " +
+                                       x.CreatedBy.Person.LastName
+                        }
+                    }
+                })
+                .ToListAsync();
+        }
+        #endregion
+
+        #region GetRequirementWorkProgressNotes
+        public List<RequirementWorkProgressNote> GetRequirementWorkProgressNotes(
+            string siteId,
+            string requirementId,
+            bool latestOnTop = true)
+        {
+            // Get all tasks under the requirement
+            var tasks = _projectTaskRepository.TableNoTracking
+                .Where(x =>
+                    x.SiteId == siteId &&
+                    x.RequirementId == requirementId &&
+                    !x.Deleted)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Name
+                })
+                .ToList();
+
+            if (!tasks.Any())
+                return new List<RequirementWorkProgressNote>();
+
+            var taskIds = tasks.Select(x => x.Id).ToList();
+
+            // Get all activities under those tasks
+            var activities = _projectActivityRepository.TableNoTracking
+                .Where(x =>
+                    x.SiteId == siteId &&
+                    taskIds.Contains(x.TaskId) &&
+                    !x.Deleted)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Name,
+                    x.TaskId
+                })
+                .ToList();
+
+            var activityIds = activities.Select(x => x.Id).ToList();
+
+            // Get task notes
+            var taskNotes = _notesRepository.TableNoTracking
+                .Where(x =>
+                    x.SiteId == siteId &&
+                    x.Type == "Project Task" &&
+                    taskIds.Contains(x.SubModuleId) &&
+                    !x.Deleted)
+                .Select(x => new RequirementWorkProgressNote
+                {
+                    Id = x.Id,
+                    Note = x.Note,
+                    NoteType = "Task",
+                    RecordId = x.SubModuleId,
+                    CreatedById = x.CreatedById,
+                    CreatedOnUtc = x.CreatedOnUtc,
+
+                    User = new ApplicationUser
+                    {
+                        Id = x.User.Id,
+                        UserName = x.User.UserName,
+                        Person = new Person
+                        {
+                            Id = x.User.PersonId,
+                            FirstName = x.User.Person.FirstName,
+                            LastName = x.User.Person.LastName,
+                            FullName =
+                                x.User.Person.FirstName + " " +
+                                x.User.Person.LastName
+                        }
+                    }
+                })
+                .ToList();
+
+            // Get activity notes
+            var activityNotes = new List<RequirementWorkProgressNote>();
+
+            if (activityIds.Any())
+            {
+                activityNotes = _notesRepository.TableNoTracking
+                    .Where(x =>
+                        x.SiteId == siteId &&
+                        x.Type == "Project Activities" &&
+                        activityIds.Contains(x.SubModuleId) &&
+                        !x.Deleted)
+                    .Select(x => new RequirementWorkProgressNote
+                    {
+                        Id = x.Id,
+                        Note = x.Note,
+                        NoteType = "Activity",
+                        RecordId = x.SubModuleId,
+                        CreatedById = x.CreatedById,
+                        CreatedOnUtc = x.CreatedOnUtc,
+
+                        User = new ApplicationUser
+                        {
+                            Id = x.User.Id,
+                            UserName = x.User.UserName,
+                            Person = new Person
+                            {
+                                Id = x.User.PersonId,
+                                FirstName = x.User.Person.FirstName,
+                                LastName = x.User.Person.LastName,
+                                FullName =
+                                    x.User.Person.FirstName + " " +
+                                    x.User.Person.LastName
+                            }
+                        }
+                    })
+                    .ToList();
+            }
+
+            // Add task/activity information
+            foreach (var note in taskNotes)
+            {
+                var task = tasks.FirstOrDefault(x => x.Id == note.RecordId);
+
+                if (task != null)
+                {
+                    note.TaskId = task.Id;
+                    note.TaskName = task.Name;
+                    note.RecordName = task.Name;
+                }
+            }
+
+            foreach (var note in activityNotes)
+            {
+                var activity = activities.FirstOrDefault(x => x.Id == note.RecordId);
+
+                if (activity != null)
+                {
+                    note.ActivityId = activity.Id;
+                    note.ActivityName = activity.Name;
+                    note.RecordName = activity.Name;
+
+                    note.TaskId = activity.TaskId;
+
+                    var task = tasks.FirstOrDefault(x => x.Id == activity.TaskId);
+
+                    if (task != null)
+                    {
+                        note.TaskName = task.Name;
+                    }
+                }
+            }
+
+            // Combine task + activity notes
+            var result = taskNotes
+                .Concat(activityNotes)
+                .OrderByDescending(x => x.CreatedOnUtc)
+                .ToList();
+
+            if (!latestOnTop)
+            {
+                result = result
+                    .OrderBy(x => x.CreatedOnUtc)
+                    .ToList();
+            }
+
+            return result;
+        }
+        #endregion
+
+        #region
+        public async Task<Requirement> GetRequirementDataMappingLabelsByRequirementId(string requirementId)
+        {
+            return await _requirementRepository.TableNoTracking
+                .Where(x => x.Id == requirementId && !x.Deleted)
+                .Select(x => new Requirement
+                {
+                    Id = x.Id,
+                    SourceLabel = x.SourceLabel,
+                    TargetLabel = x.TargetLabel
+                })
+                .FirstOrDefaultAsync();
+        }
+        #endregion
+
+        #region InsertRequirement
+        // Title: InsertRequirement
+        // Description: This method inserts a new Requirement entity into the repository. It takes a Requirement object as input and uses the _requirementRepository to handle the insertion operation.
+        public void InsertRequirement(Requirement entity)
+        {
+            _requirementRepository.Insert(entity);
+        }
+        #endregion
+
+        #region UpdateRequirement
+        // Title: UpdateRequirement
+        // Description: This method updates the specified Requirement entity in the repository. It takes a Requirement object as input and uses the repository's Update method to persist changes to the data source.
+        public void UpdateRequirement(Requirement entity)
+        {
+            _requirementRepository.Update(entity);
+        }
+        #endregion
+
+        #region DeleteRequirement
+        // Title: DeleteRequirement
+        // Description: Marks the specified Requirement entity as deleted by setting its `Deleted` property to true. 
+        public void DeleteRequirement(Requirement entity)
+        {
+            entity.Deleted = true;
+
+            _requirementRepository.Update(entity);
+        }
+        #endregion
+
+        private async Task<bool> IsCurrentUserAdmin(string CId, string SiteId)
+        {
+            var userdata = await _userManager.FindByIdAsync(CId);
+            var user = await _userManager.FindByNameAsync(userdata.UserName);
+            //var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _applicationUserRoleService.GetRoleNamesByUserAndSite(user.Id, SiteId);
+            var isAdmin = roles.Contains("Admin") || roles.Contains("Site Super Admin") || roles.Contains("System Super Admin") || roles.Contains("Project Admin");
+
+            return isAdmin;
+        }
+    }
+}

@@ -1,0 +1,820 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Dynamic.Core;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Vsky.Core;
+using Vsky.Data;
+using Vsky.Models;
+using Vsky.Services.ApplicationUserRoles;
+using Vsky.Services.Common;
+
+namespace Vsky.Services.TestCases
+{
+    public class TestCaseService : ITestCaseService
+    {
+        #region Define Services
+        private readonly IRepository<TestPlan> _testPlanRepository;
+        private readonly IRepository<TestCaseExecutionLog> _testCaseExecutionLogRepository;
+        private readonly IRepository<TestCase> _testCaseRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IApplicationUserRoleService _applicationUserRoleService;
+        private readonly ICommonService _commonService;
+        #endregion
+
+        #region Services Initializations
+
+        public TestCaseService(
+            IRepository<TestPlan> testPlanRepository,
+            IRepository<TestCaseExecutionLog> testCaseExecutionLogRepository,
+            IRepository<TestCase> testCaseRepository,
+            UserManager<ApplicationUser> userManager,
+            IApplicationUserRoleService applicationUserRoleService,
+            ICommonService commonService
+        )
+        {
+            _testPlanRepository = testPlanRepository;
+            _testCaseExecutionLogRepository = testCaseExecutionLogRepository;
+            _testCaseRepository = testCaseRepository;
+            _userManager = userManager;
+            _applicationUserRoleService = applicationUserRoleService;
+            _commonService = commonService;
+        }
+
+        #endregion
+
+        #region Private Methods
+        // Title: GetOrderBy
+        // Description: This method returns the input string as it is, which can be used as the `ORDER BY` clause in a SQL query.
+        private static string GetOrderBy(string orderBy)
+        {
+            return orderBy;
+        }
+        #endregion
+
+        #region GetAllTestCases
+        // Title: GetAllTestCases
+        // Description: This method retrieves a paginated list of Test Case based on various search criteria such as name, 
+        // It also supports sorting and includes related data .The method allows for both full and lookup (limited) data retrieval modes.
+        public async Task<IPagedList<TestCase>> GetAllTestCases(
+            string SiteId,
+            string LoggedUserId,
+            string employeeId,
+            string SearchText,
+            int testCaseNumber,
+            List<string> projectIds,
+            List<string> projectModuleIds,
+            List<string> requirementIds,
+            List<string> planIds,
+            List<string> testedBys,
+            List<string> statusIds,
+            string versionNumber,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue,
+            bool lookup = false)
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(x => !x.Deleted && !x.TestPlan.Deleted && x.SiteId == SiteId && !x.Project.Deleted && !x.Project.IsArchived);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+
+            if (!IsAdmin)
+            {
+                query = query.Where(x =>
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings.Any(m =>
+                        !m.Deleted &&
+                        m.EmployeeId == employeeId &&
+                        m.ProjectEmployeeRoleMappings.Any(r =>
+                            !r.Deleted &&
+                            r.SitesProjectRoles.SitesProjectRolesPermissions.Any(p =>
+                                !p.Deleted &&
+                                (p.FullAccess || p.ViewOnly || p.Notes)
+                            )
+                        )
+                    )
+                );
+            }
+
+            if (testCaseNumber != 0)
+                query = query.Where(x => x.TestCaseNumber == testCaseNumber);
+
+            if (projectIds != null && projectIds.Any())
+                query = query.Where(x => projectIds.Contains(x.ProjectId));
+
+            if (projectModuleIds != null && projectModuleIds.Any())
+                query = query.Where(x => projectModuleIds.Contains(x.ProjectModuleId));
+
+            if (requirementIds != null && requirementIds.Any())
+                query = query.Where(x => requirementIds.Contains(x.RequirementId));
+
+            if (planIds != null && planIds.Any())
+                query = query.Where(x => planIds.Contains(x.PlanId));
+
+            if (testedBys != null && testedBys.Any())
+                query = query.Where(x => testedBys.Contains(x.TestedBy));
+
+            if (statusIds != null && statusIds.Any())
+            {
+                query = query.Where(x =>
+                    statusIds.Contains(
+                        x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                            .SelectMany(m => m.TestCaseExecutionLog)
+                            .OrderByDescending(l => l.CreatedOnUtc)
+                            .Select(l => l.StatusId)
+                            .FirstOrDefault()
+                        ?? x.StatusId
+                    ));
+            }
+
+            if (!string.IsNullOrWhiteSpace(versionNumber))
+            {
+                versionNumber = versionNumber.Trim();
+
+                query = query.Where(x =>
+                    x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                        .Any(m => m.ReleaseTracking.VersionNumber.Contains(versionNumber)));
+            }
+
+            //Search by FromDate and Todate
+            if (fromDate != null)
+                query = query.Where(x => x.CreatedOnUtc >= fromDate);
+            if (toDate != null)
+                query = query.Where(a => a.CreatedOnUtc <= toDate);
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
+                query = query.OrderBy(orderBy);
+            }
+            else
+            {
+                query = query.OrderByDescending(x => x.CreatedOnUtc);
+            }
+
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                SearchText = SearchText.Trim().ToLower();
+                DateTime.TryParse(SearchText, out var parsedDate);
+
+                query = query.Where(m =>
+                    m.TestCaseNumber.ToString().Contains(SearchText) ||
+                    m.Project.Name.ToLower().Contains(SearchText) ||
+                    m.ProjectModule.Name.ToLower().Contains(SearchText.ToLower()) ||
+                    m.Requirement.Title.ToLower().Contains(SearchText.ToLower()) ||
+                    m.TestPlan.Name.ToLower().Contains(SearchText) ||
+                    m.Name.ToLower().Contains(SearchText) ||
+                    (
+                        m.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                            .SelectMany(x => x.TestCaseExecutionLog)
+                            .OrderByDescending(x => x.CreatedOnUtc)
+                            .Select(x => x.Status.DropDownValue)
+                            .FirstOrDefault()
+                        ?? m.Status.DropDownValue
+                    ).ToLower().Contains(SearchText) ||
+
+                     m.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                        .Any(x => x.ReleaseTracking.VersionNumber.ToLower().Contains(SearchText)) ||
+
+                    (m.TestedByEmployee.Person.FirstName + " " + m.TestedByEmployee.Person.LastName)
+                        .ToLower()
+                        .Contains(SearchText) ||
+
+                    m.CreatedOnUtc.Date == parsedDate.Date
+                );
+            }
+
+            // Apply multi-level dictionary sorting
+            if (sorts != null && sorts.Count > 0)
+            {
+                query = _commonService.ApplySorting(query, sorts);
+            }
+
+            query = query.Select(x => new TestCase
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                PlanId = x.PlanId,
+                StatusId = x.StatusId,
+                TestedBy = x.TestedBy,
+                Name = x.Name,
+                Description = x.Description,
+                Steps = x.Steps,
+                ExpectedResult = x.ExpectedResult,
+                ActualResult = x.ActualResult,
+                TestResult = x.TestResult,
+                TestedDate = x.TestedDate,
+                AreaId = x.AreaId,
+                WorkspaceId = x.WorkspaceId,
+                TestCaseNumber = x.TestCaseNumber,
+                CreatedOnUtc = x.CreatedOnUtc,
+                UpdatedOnUtc = x.UpdatedOnUtc,
+
+                ProjectReleaseTrackingReqPlanTaskIssueMappingId = x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                .Where(m => !m.Deleted)
+                .OrderByDescending(m => m.ReleaseTracking.CreatedOnUtc)
+                .Select(m => m.Id)
+                .FirstOrDefault(),
+
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                TestedByEmployee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.TestedByEmployee.Person.Id,
+                        FullName = x.TestedByEmployee.Person.FirstName + " " + x.TestedByEmployee.Person.LastName,
+                    }
+                },
+                CreatedByUser = new ApplicationUser
+                {
+                    Person = new Person
+                    {
+                        Id = x.CreatedByUser.PersonId,
+                        FullName = x.CreatedByUser.Person.FirstName + " " + x.CreatedByUser.Person.LastName,
+                    }
+                },
+                UpdatedBy = new ApplicationUser
+                {
+                    Person = new Person
+                    {
+                        Id = x.UpdatedBy.PersonId,
+                        FullName = x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName,
+                    }
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name,
+                    CurrentUserManage =
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                 r.SitesProjectRoles.MasterProjectRoles.Name == "Software Tester" ||
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.FullAccess))),
+
+                    CurrentUserNotes =
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.Notes)))
+                },
+                ProjectModule = new ProjectModule
+                {
+                    Id = x.ProjectModule.Id,
+                    Name = x.ProjectModule.Name
+                },
+                Requirement = x.Requirement == null
+                    ? null
+                    : new Requirement
+                    {
+                        Id = x.Requirement.Id,
+                        RequirementNumber = x.Requirement.RequirementNumber
+                    },
+                Status = x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                .Where(m => !m.Deleted)
+                .OrderByDescending(m => m.ReleaseTracking.CreatedOnUtc)
+                .SelectMany(m => m.TestCaseExecutionLog
+                    .Where(l => !l.Deleted)
+                    .OrderByDescending(l => l.CreatedOnUtc)
+                    .Take(1))
+                .Select(l => new DropDown
+                {
+                    Id = l.Status.Id,
+                    DropDownValue = l.Status.DropDownValue
+                })
+                .FirstOrDefault()
+                ?? new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue
+                },
+                TestPlan = new TestPlan
+                {
+                    Id = x.TestPlan.Id,
+                    Name = x.TestPlan.Name
+                },
+            });
+
+            var list = new PagedList<TestCase>(query, page, pageSize);
+            return list;
+        }
+
+        public async Task<IPagedList<TestCase>> GetAllTestCasesForDashboard(
+            string SiteId, 
+            string LoggedUserId, 
+            string employeeId, 
+            string projectId, 
+            string sortBy, 
+            bool descending, 
+            int page = 1, 
+            int pageSize = int.MaxValue, 
+            bool lookup = false
+        )
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(x => !x.Deleted && !x.TestPlan.Deleted && x.SiteId == SiteId && x.ProjectId == projectId);
+
+            bool IsAdmin = await IsCurrentUserAdmin(LoggedUserId, SiteId);
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
+                query = query.OrderBy(orderBy);
+            }
+            else
+            {
+                query = query.OrderByDescending(x => x.CreatedOnUtc);
+            }
+            query = query.OrderByDescending(x => x.UpdatedOnUtc).Select(x => new TestCase
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                PlanId = x.PlanId,
+                StatusId = x.StatusId,
+                TestedBy = x.TestedBy,
+                Name = x.Name,
+                Description = x.Description,
+                Steps = x.Steps,
+                ExpectedResult = x.ExpectedResult,
+                ActualResult = x.ActualResult,
+                TestResult = x.TestResult,
+                TestedDate = x.TestedDate,
+                TestCaseNumber = x.TestCaseNumber,
+                CreatedOnUtc = x.CreatedOnUtc,
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                TestedByEmployee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.TestedByEmployee.Person.Id,
+                        FullName = x.TestedByEmployee.Person.FirstName + " " + x.TestedByEmployee.Person.LastName,
+                    }
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name,
+                    IsArchived = x.Project.IsArchived,
+                    CurrentUserManage =
+                    IsAdmin ||
+                    x.Project.CreatedById == LoggedUserId ||
+                    x.CreatedById == LoggedUserId ||
+                    x.Project.ProjectEmployeeMappings
+                        .Where(m =>
+                            !m.Deleted &&
+                            m.EmployeeId == employeeId)
+                        .Any(m =>
+                            m.ProjectEmployeeRoleMappings
+                                .Where(r => !r.Deleted)
+                                .Any(r =>
+                                 r.SitesProjectRoles.MasterProjectRoles.Name == "Software Tester" ||
+                                    r.SitesProjectRoles
+                                        .SitesProjectRolesPermissions
+                                        .Any(p =>
+                                            !p.Deleted &&
+                                            p.FullAccess)))
+                },
+                Status = new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue
+                },
+                TestPlan = new TestPlan
+                {
+                    Id = x.TestPlan.Id,
+                    Name = x.TestPlan.Name
+                },
+            });
+
+            var list = new PagedList<TestCase>(query, page, pageSize);
+            return list;
+        }
+        #endregion
+
+        #region GetTestCaseById
+        // Title: GetTestCaseById
+        // Description: This method retrieves a TestCase from the database by its unique identifier (`id`). 
+        public async Task<TestCase> GetTestCaseById(string id)
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetLastTestCaseNumber
+        // Title: GetLastTestCaseNumber
+        // Description: This method retrieves the highest TestCaseNumber from the database or returns 1 if none are found. 
+        public async Task<int> GetLastTestCaseNumber()
+        {
+            var query = await _testCaseRepository.TableNoTracking.OrderByDescending(m => m.TestCaseNumber).FirstOrDefaultAsync();
+            return query == null ? 1 : query.TestCaseNumber;
+        }
+        #endregion
+
+        #region GetAllTestCasesListForDropdown
+        public async Task<List<TestCase>> GetAllTestCasesListForDropdown(string SiteId)
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(m => !m.Deleted && m.SiteId == SiteId);
+            query = query.Select(x => new TestCase
+            {
+                Id = x.Id,
+                Name = x.Name,
+            });
+
+            var list = await query.ToListAsync();
+            return list;
+        }
+        #endregion
+
+        #region GetTestCasesByRequirementId
+        public async Task<List<TestCase>> GetTestCasesByRequirementId(
+            string siteId,
+            string LoggedUserId,
+            string requirementId,
+            string SearchText,
+            int testCaseNumber,
+            List<string> planIds,
+            List<string> testedBys,
+            List<string> statusIds,
+            string versionNumber,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string sortBy,
+            Dictionary<string, string> sorts,
+            bool descending,
+            int page = 1,
+            int pageSize = int.MaxValue,
+            bool lookup = false
+        )
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(m => !m.Deleted && m.SiteId == siteId && m.RequirementId == requirementId);
+
+            if (testCaseNumber != 0)
+                query = query.Where(x => x.TestCaseNumber == testCaseNumber);
+
+            if (planIds != null && planIds.Any())
+                query = query.Where(x => planIds.Contains(x.PlanId));
+
+            if (testedBys != null && testedBys.Any())
+                query = query.Where(x => testedBys.Contains(x.TestedBy));
+
+            if (statusIds != null && statusIds.Any())
+            {
+                query = query.Where(x =>
+                    statusIds.Contains(
+                        x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                            .SelectMany(m => m.TestCaseExecutionLog)
+                            .OrderByDescending(l => l.CreatedOnUtc)
+                            .Select(l => l.StatusId)
+                            .FirstOrDefault()
+                        ?? x.StatusId
+                    ));
+            }
+
+            if (!string.IsNullOrWhiteSpace(versionNumber))
+            {
+                versionNumber = versionNumber.Trim();
+
+                query = query.Where(x =>
+                    x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                        .Any(m => m.ReleaseTracking.VersionNumber.Contains(versionNumber)));
+            }
+
+            //Search by FromDate and Todate
+            if (fromDate != null)
+                query = query.Where(x => x.CreatedOnUtc >= fromDate);
+            if (toDate != null)
+                query = query.Where(a => a.CreatedOnUtc <= toDate);
+
+            if (!string.IsNullOrWhiteSpace(sortBy))
+            {
+                var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
+                query = query.OrderBy(orderBy);
+            }
+            else
+            {
+                query = query.OrderByDescending(x => x.CreatedOnUtc);
+            }
+
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                SearchText = SearchText.Trim().ToLower();
+                DateTime.TryParse(SearchText, out var parsedDate);
+
+                query = query.Where(m =>
+                    m.TestCaseNumber.ToString().Contains(SearchText) ||
+                    m.TestPlan.Name.ToLower().Contains(SearchText) ||
+                    m.Name.ToLower().Contains(SearchText) ||
+                    (
+                        m.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                            .SelectMany(x => x.TestCaseExecutionLog)
+                            .OrderByDescending(x => x.CreatedOnUtc)
+                            .Select(x => x.Status.DropDownValue)
+                            .FirstOrDefault()
+                        ?? m.Status.DropDownValue
+                    ).ToLower().Contains(SearchText) ||
+
+                     m.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                        .Any(x => x.ReleaseTracking.VersionNumber.ToLower().Contains(SearchText)) ||
+
+                    (m.TestedByEmployee.Person.FirstName + " " + m.TestedByEmployee.Person.LastName)
+                        .ToLower()
+                        .Contains(SearchText) ||
+
+                    m.CreatedOnUtc.Date == parsedDate.Date
+                );
+            }
+
+            // Apply multi-level dictionary sorting
+            if (sorts != null && sorts.Count > 0)
+            {
+                query = _commonService.ApplySorting(query, sorts);
+            }
+
+            query = query.Select(x => new TestCase
+            {
+                Id = x.Id,
+                TestCaseNumber = x.TestCaseNumber,
+                Name = x.Name,
+                TestedDate = x.TestedDate,
+                PlanId = x.PlanId,
+                Status = new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue,
+                    BgColor = x.Status.BgColor,
+                    Color = x.Status.Color
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name
+                },
+                TestedByEmployee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.TestedByEmployee.Person.Id,
+                        FullName = x.TestedByEmployee.Person.FirstName + " " + x.TestedByEmployee.Person.LastName,
+                    }
+                }
+            });
+
+            var list = await query.ToListAsync();
+            return list;
+        }
+        #endregion
+
+        #region GetStatusChangeLog
+        public async Task<List<TestCaseStatusChangeLogDto>> GetStatusChangeLog(string mappingId, string siteId)
+        {
+            return await _testCaseExecutionLogRepository.TableNoTracking
+                .Where(x => x.ProjectReleaseTracking_ReqPlanTaskIssueMappingId == mappingId
+                            && x.ProjectReleaseTracking_ReqPlanTaskIssueMapping.TestCase.SiteId == siteId)
+                .OrderByDescending(x => x.CreatedOnUtc)
+                .Select(x => new TestCaseStatusChangeLogDto
+                {
+                    Id = x.Id,
+                    Status = x.Status.DropDownValue,
+                    Comment = x.Comment,
+                    ChangedBy = x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    ChangedDate = x.CreatedOnUtc,
+                    IsRemoved = x.Deleted
+                })
+                .ToListAsync();
+        }
+        #endregion
+
+        #region GetTestCaseDetailsById
+        // Title: GetTestCaseDetailsById
+        // Description: The method selects relevant fields from the TestCase entity.
+        public async Task<TestCase> GetTestCaseDetailsById(string id)
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+            query = query.Select(x => new TestCase
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                ProjectModuleId = x.ProjectModuleId,
+                RequirementId = x.RequirementId,
+                EmployeeId = x.EmployeeId,
+                TestedBy = x.TestedBy,
+                PlanId = x.PlanId,
+                AreaId = x.AreaId,
+                WorkspaceId = x.WorkspaceId,
+                Name = x.Name,
+                Description = x.Description,
+                Steps = x.Steps,
+                ExpectedResult = x.ExpectedResult,
+                ActualResult = x.ActualResult,
+                TestResult = x.TestResult,
+                TestedDate = x.TestedDate,
+                TestCaseNumber = x.TestCaseNumber,
+                CreatedById = x.CreatedById,
+                CreatedOnUtc = x.CreatedOnUtc,
+                UpdatedOnUtc = x.UpdatedOnUtc,
+                Area = new DropDown
+                {
+                    Id = x.Area.Id,
+                    DropDownValue = x.Area.DropDownValue
+                },
+                Workspace = new DropDown
+                {
+                    Id = x.Workspace.Id,
+                    DropDownValue = x.Workspace.DropDownValue
+                },
+                Employee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.Employee.Person.Id,
+                        FullName = x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    }
+                },
+                TestedByEmployee = new Employee
+                {
+                    Person = new Person
+                    {
+                        Id = x.TestedByEmployee.Person.Id,
+                        FullName = x.TestedByEmployee.Person.FirstName + " " + x.TestedByEmployee.Person.LastName,
+                    }
+                },
+                Project = new Project
+                {
+                    Id = x.Project.Id,
+                    Name = x.Project.Name
+                },
+                ProjectModule = new ProjectModule
+                {
+                    Id = x.ProjectModule.Id,
+                    Name = x.ProjectModule.Name
+                },
+                Requirement = x.Requirement == null
+                    ? null
+                    : new Requirement
+                    {
+                        Id = x.Requirement.Id,
+                        Title = x.Requirement.Title
+                    },
+                ProjectReleaseTrackingReqPlanTaskIssueMappingId = x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                .Where(m => !m.Deleted)
+                .OrderByDescending(m => m.ReleaseTracking.CreatedOnUtc)
+                .Select(m => m.Id)
+                .FirstOrDefault(),
+                //Status = new DropDown
+                //{
+                //    Id = x.Status.Id,
+                //    DropDownValue = x.Status.DropDownValue,
+                //    BgColor = x.Status.BgColor,
+                //    Color = x.Status.Color
+                //},
+                Status = x.ProjectReleaseTrackingReqPlanTaskIssueMappings
+                .Where(m => !m.Deleted)
+                .OrderByDescending(m => m.ReleaseTracking.CreatedOnUtc)
+                .SelectMany(m => m.TestCaseExecutionLog
+                    .Where(l => !l.Deleted)
+                    .OrderByDescending(l => l.CreatedOnUtc)
+                    .Take(1))
+                .Select(l => new DropDown
+                {
+                    Id = l.Status.Id,
+                    DropDownValue = l.Status.DropDownValue,
+                    BgColor = l.Status.BgColor,
+                    Color = l.Status.Color
+                })
+                .FirstOrDefault()
+                ?? new DropDown
+                {
+                    Id = x.Status.Id,
+                    DropDownValue = x.Status.DropDownValue
+                },
+                TestPlan = new TestPlan
+                {
+                    Id = x.TestPlan.Id,
+                    Name = x.TestPlan.Name
+                },
+                CreatedByUser = new ApplicationUser
+                {
+                    Id = x.CreatedByUser.Id,
+                    Person = new Person
+                    {
+                        FullName = x.CreatedByUser.Person.FirstName + " " + x.CreatedByUser.Person.LastName
+                    }
+                },
+                UpdatedBy = new ApplicationUser
+                {
+                    Id = x.UpdatedBy.Id,
+                    Person = new Person
+                    {
+                        FullName = x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
+                    }
+                },
+            });
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetTestCaseByName
+        // Title: GetTestCaseByName
+        // Description: This method retrieves a Test Case based on its name and Id. It allows an optional exclusion of a Test Case by its ID, which can be useful for scenarios like checking for duplicates. while excluding a specific Test Case. The method returns the first matching Test Case or null if no match is found.
+        public async Task<TestCase> GetTestCaseByName(string siteId, string projectId, string testPlanId, string projectModuleId, string name, string id = null)
+        {
+            var query = _testCaseRepository.TableNoTracking.Where(x =>
+                !x.Deleted &&
+                x.SiteId == siteId &&
+                x.Name.ToLower() == name.ToLower() &&
+                x.ProjectId == projectId &&
+                x.PlanId == testPlanId &&
+                x.ProjectModuleId == projectModuleId
+            );
+
+            if (!string.IsNullOrEmpty(id))
+                query = query.Where(x => x.Id != id);
+
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region InsertTestCase
+        // Title: InsertTestCase
+        // Description: This method inserts a new TestCase entity into the repository. It takes a TestCase object as input and uses the _testCaseRepository to handle the insertion operation.
+        public void InsertTestCase(TestCase entity)
+        {
+            _testCaseRepository.Insert(entity);
+        }
+        #endregion
+
+        #region UpdateTestCase
+        // Title: UpdateTestCase
+        // Description: This method updates the specified TestCase entity in the repository. It takes a TestCase object as input and uses the repository's Update method to persist changes to the data source.
+        public void UpdateTestCase(TestCase entity)
+        {
+            _testCaseRepository.Update(entity);
+        }
+        #endregion
+
+        #region DeleteTestCase
+        // Title: DeleteTestCase
+        // Description: Marks the specified TestCase entity as deleted by setting its `Deleted` property to true. 
+        public void DeleteTestCase(TestCase entity)
+        {
+            entity.Deleted = true;
+
+            _testCaseRepository.Update(entity);
+        }
+        #endregion
+        private async Task<bool> IsCurrentUserAdmin(string CId, string SiteId)
+        {
+            var userdata = await _userManager.FindByIdAsync(CId);
+            var user = await _userManager.FindByNameAsync(userdata.UserName);
+            //var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _applicationUserRoleService.GetRoleNamesByUserAndSite(user.Id, SiteId);
+            var isAdmin = roles.Contains("Admin") || roles.Contains("Site Super Admin") || roles.Contains("System Super Admin") || roles.Contains("Project Admin");
+
+            return isAdmin;
+        }
+    }
+}

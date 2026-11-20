@@ -1,0 +1,456 @@
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
+using AngleSharp.Dom;
+using Microsoft.AspNetCore.Mvc;
+using Vsky.Api.ApiErrors;
+using Vsky.Api.Extensions;
+using Vsky.Api.Models;
+using Vsky.Models;
+using Vsky.Services.AzureBlobImage;
+using Vsky.Services.Common;
+using Vsky.Services.Sites;
+using Vsky.Services.SOPProcesses;
+using static Dapper.SqlMapper;
+
+namespace Vsky.Api.Controllers
+{
+    [Route("sop-process")]
+    [RequireMenu(MenuLinks.SopProcess)]
+    public class SOPProcessController : BaseController
+    {
+        private static readonly System.Net.Http.HttpClient AssistantClient = new();
+        private const string DefaultAssistantWebhookUrl = "https://n8nworkflow.vskyapplications.com/webhook/c9cb3684-587b-4a09-97f9-b3bb4a0b357f/chat";
+        #region Define Services and Initializations
+        private readonly GlobalVariable _globalVariable;
+        private readonly ICommonService _commonService;
+        private readonly ISiteService _siteService;
+        private readonly IAzureBlobImageServices _azureBlobImageServices;
+        private readonly ISOPProcessService _sOPProcessService;
+        private readonly ISOPProcessStatusLogService _sOPProcessStatusLogService;
+        public SOPProcessController(
+            GlobalVariable globalVariable,
+            ICommonService commonService,
+            ISiteService siteService,
+            IAzureBlobImageServices azureBlobImageServices,
+            ISOPProcessService sOPProcessService,
+            ISOPProcessStatusLogService sOPProcessStatusLogService)
+        {
+            _globalVariable = globalVariable;
+            _commonService = commonService;
+            _siteService = siteService;
+            _azureBlobImageServices = azureBlobImageServices;
+            _sOPProcessService = sOPProcessService;
+            _sOPProcessStatusLogService = sOPProcessStatusLogService;
+        }
+        #endregion
+
+        // The browser no longer holds the workflow's URL, and only signed-in users with access reach it.
+        [HttpPost("assistant-chat")]
+        [ReadAccess]
+        public async Task<IActionResult> AssistantChat([FromBody] System.Text.Json.JsonElement message, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration)
+        {
+            try
+            {
+                var webhookUrl = configuration["SopAssistant:WebhookUrl"] ?? DefaultAssistantWebhookUrl;
+                using var content = new System.Net.Http.StringContent(message.GetRawText(), System.Text.Encoding.UTF8, "application/json");
+                using var response = await AssistantClient.PostAsync(webhookUrl, content);
+                return Content(await response.Content.ReadAsStringAsync(), "application/json");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+
+        [HttpPost("list")]
+        [ReadAccess]
+        public IActionResult GetAllSOPProcesses(SOPProcessSearchModel searchModel)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                var list = _sOPProcessService.GetAllSOPProcesses(
+                    searchModel.SearchText, 
+                    SiteId, 
+                    LoggedUserId, 
+                    searchModel.Title, 
+                    searchModel.CategoryIds, 
+                    searchModel.SubCategoryIds, 
+                    searchModel.StatusIds, 
+                    searchModel.IsActive, 
+                    searchModel.SortBy,
+                    searchModel.Sorts,
+                    searchModel.Descending, 
+                    searchModel.Page, 
+                    searchModel.PageSize
+                );
+
+                var model = new SOPProcessList
+                {
+                    SOPProcessesList = list,
+                    Total = list.TotalCount
+                };
+
+                return Ok(model);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+
+        [HttpGet("details/{id}")]
+        [RecordScope(Vsky.Services.Authorization.RecordRule.SopProcess)]
+        [SiteOwned(typeof(Vsky.Models.SOPProcess))]
+        public async Task<IActionResult> GetSOPProcessByIdInDetail(string id)
+        {
+            try
+            {
+                var LoggedUserId = User.GetLoggedInUserId<string>();
+                var SiteId = _globalVariable.SiteId;
+
+                var entity = await _sOPProcessService.GetSOPProcessByIdInDetail(SiteId, id);
+                if (entity == null)
+                    return BadRequest(new BadRequestError("No SOP Process Found"));
+
+                return Ok(entity);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+
+        [HttpGet("version")]
+        public async Task<IActionResult> GetNextSOPProcessVersion()
+        {
+            try
+            {
+                string version;
+                version = await _sOPProcessService.GetNextSOPProcessVersion();
+
+                return Ok(version);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+
+        #region CreateSOPProcess
+        // Title: CreateSOPProcess
+        // Description: This endpoint handles the creation of a new test plan. It maps the test plan model to the test plan entity, sets the creation details, and inserts the test plan into the database. 
+        [HttpPost]
+        public async Task<IActionResult> CreateSOPProcess(SaveSOPProcess model)
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var LoggedUserId = User.GetLoggedInUserId<string>();
+                    var SiteId = _globalVariable.SiteId;
+                    var SiteData = await _siteService.GetById(SiteId);
+                    var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+                    var exists = await _sOPProcessService.GetSOPProcessByTitle(SiteId, model.Title);
+                    if (exists != null)
+                        return BadRequest(new BadRequestError("The sop process title already exists"));
+
+                    var SOPProcessEntity = new SOPProcess
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        SOPProcessNumber = await _sOPProcessService.GetLastSOPProcessNumber() + 1,
+                        Version = model.Version,
+                        SiteId = SiteId,
+                        Title = model.Title,
+                        CategoryId = model.CategoryId,
+                        SubCategoryId = model.SubCategoryId,
+                        ShortDescription = model.ShortDescription,
+                        Purpose = model.Purpose,
+                        IsActive = model.IsActive,
+                        CreatedById = LoggedUserId,
+                        UpdatedById = LoggedUserId,
+                        CreatedOnUtc = GetDateTime,
+                        UpdatedOnUtc = GetDateTime,
+                    };
+
+                    if (!string.IsNullOrEmpty(model.Description))
+                    {
+                        SOPProcessEntity.Description = await _azureBlobImageServices
+                            .ProcessHtmlAndManageImagesAsync(
+                                model.Description,
+                                SiteData.Name,
+                                "SOP-Process",
+                                SOPProcessEntity.Id
+                            );
+                    }
+                    _sOPProcessService.InsertSOPProcess(SOPProcessEntity);
+
+                    if (!string.IsNullOrWhiteSpace(model.StatusId))
+                    {
+                        // Add Status Log
+                        AddSOPProcessStatusLog(SOPProcessEntity.Id, model.StatusId, LoggedUserId, GetDateTime);
+                    }
+
+                    return Ok(SOPProcessEntity);
+                }
+                // Return model state errors if the model state is not valid
+                return ModelStateError(ModelState);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region UpdateSOPProcess
+        // Title: UpdateSOPProcess
+        // Description: This endpoint updates an existing SOP Process by its ID. 
+        [HttpPut("{id}")]
+        [RecordScope(Vsky.Services.Authorization.RecordRule.SopProcess)]
+        [SiteOwned(typeof(Vsky.Models.SOPProcess))]
+        public async Task<IActionResult> UpdateSOPProcess(string id, SaveSOPProcess model)
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var loggedUserId = User.GetLoggedInUserId<string>();
+                    var SiteId = _globalVariable.SiteId;
+                    var SiteData = await _siteService.GetById(SiteId);
+                    var currentDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+                    var entity = _sOPProcessService.GetSOPProcessById(SiteId, id);
+                    // If no sop process is found with the given ID, return a bad request with an error message
+                    if (entity == null)
+                        return BadRequest(new BadRequestError("No sop process found with the specified id."));
+
+                    //Check if the sop process already exists
+                    var exists = await _sOPProcessService.GetSOPProcessByTitle(SiteId, model.Title, model.SOPProcessNumber, id);
+                    if (exists != null)
+                        return BadRequest(new BadRequestError("sop process title already exists, try with another."));
+
+                    //var lastStatus = entity.SOPProcessStatusLog?.Select(x => x.StatusId && x.Status.DropDownValue).FirstOrDefault();
+                    //bool IsSOPProcessStatusChanged = model.StatusId != lastStatus.statusId;
+                    var lastStatus = entity.SOPProcessStatusLog?.OrderByDescending(x => x.CreatedOnUtc).FirstOrDefault();
+
+                    bool IsSOPProcessStatusChanged = model.StatusId != lastStatus?.StatusId;
+
+                    string statusName = lastStatus?.Status?.DropDownValue;
+
+                    bool isDescriptionChanged = !string.Equals(
+                        entity.Description?.Trim(),
+                        model.Description?.Trim(),
+                        StringComparison.Ordinal);
+
+                    bool shouldCreateVersion = (isDescriptionChanged && (model.ActionType == "approve" || model.ActionType == "saveApproval")) || statusName == "Published";
+
+                    if (shouldCreateVersion)
+                    {
+                        bool createMajorVersion = statusName == "Published";
+
+                        var sopProcess = new SOPProcess
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            SOPProcessNumber = model.SOPProcessNumber,
+                            Version = await _sOPProcessService.GetNextSOPProcessVersion(
+                                entity.Version,
+                                createMajorVersion),
+                            SiteId = SiteId,
+                            Title = model.Title,
+                            CategoryId = model.CategoryId,
+                            SubCategoryId = model.SubCategoryId,
+                            ShortDescription = model.ShortDescription,
+                            Purpose = model.Purpose,
+                            IsActive = model.IsActive,
+                            CreatedById = loggedUserId,
+                            UpdatedById = loggedUserId,
+                            CreatedOnUtc = currentDateTime,
+                            UpdatedOnUtc = currentDateTime
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(model.Description))
+                        {
+                            sopProcess.Description =
+                                await _azureBlobImageServices.ProcessHtmlAndManageImagesAsync(
+                                    model.Description,
+                                    SiteData.Name,
+                                    "SOP-Process",
+                                    sopProcess.Id);
+                        }
+
+                        _sOPProcessService.InsertSOPProcess(sopProcess);
+
+                        AddSOPProcessStatusLog(
+                            sopProcess.Id,
+                            model.ActionType == "saveApproval" ? lastStatus?.Status?.Id : model.StatusId,
+                            loggedUserId,
+                            currentDateTime);
+                    }
+                    else
+                    {
+                        entity.Title = model.Title;
+                        entity.CategoryId = model.CategoryId;
+                        entity.SubCategoryId = model.SubCategoryId;
+                        entity.ShortDescription = model.ShortDescription;
+                        entity.Purpose = model.Purpose;
+                        entity.IsActive = model.IsActive;
+                        entity.UpdatedById = loggedUserId;
+                        entity.UpdatedOnUtc = currentDateTime;
+
+                        if (!string.IsNullOrWhiteSpace(model.Description))
+                        {
+                            entity.Description =
+                                await _azureBlobImageServices.ProcessHtmlAndManageImagesAsync(
+                                    model.Description,
+                                    SiteData.Name,
+                                    "SOP-Process",
+                                    entity.Id,
+                                    entity.Description);
+                        }
+
+                        _sOPProcessService.UpdateSOPProcess(entity);
+
+                        if (IsSOPProcessStatusChanged && model.ActionType != "saveApproval")
+                        {
+                            AddSOPProcessStatusLog(
+                                entity.Id,
+                                model.StatusId,
+                                loggedUserId,
+                                currentDateTime);
+                        }
+                    }
+                }
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region Update SOPProcess Status
+        [HttpPut("{id}/{statusId}")]
+        public async Task<IActionResult> UpdateSOPProcessStatus(string id, string statusId)
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var LoggedUserId = User.GetLoggedInUserId<string>();
+                    var SiteId = _globalVariable.SiteId;
+                    var SiteData = await _siteService.GetById(SiteId);
+                    var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+                    // Fetch the SOPProcess entity by its ID
+                    var entity = _sOPProcessService.GetSOPProcessById(SiteId, id);
+
+                    if (entity == null)
+                        return BadRequest(new BadRequestError("No SOP process found with the specified id."));
+
+                    // Update Status
+                    entity.UpdatedById = LoggedUserId;
+                    entity.UpdatedOnUtc = GetDateTime;
+                    _sOPProcessService.UpdateSOPProcess(entity);
+
+                    // Add Status Log
+                    AddSOPProcessStatusLog(entity.Id, statusId, LoggedUserId, GetDateTime);
+
+                    return NoContent();
+                }
+                return ModelStateError(ModelState);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        #region Update SOPProcess Active/Inactive Status
+        [HttpPut("update-active-status/{id}/{isActive}")]
+        public async Task<IActionResult> UpdateSOPProcessActiveStatus(string id, bool isActive)
+        {
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    var LoggedUserId = User.GetLoggedInUserId<string>();
+                    var SiteId = _globalVariable.SiteId;
+                    var SiteData = await _siteService.GetById(SiteId);
+                    var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+                    // Fetch the SOPProcess entity by its ID
+                    var entity = _sOPProcessService.GetSOPProcessById(SiteId, id);
+
+                    if (entity == null)
+                        return BadRequest(new BadRequestError("No SOP process found with the specified id."));
+
+                    // Update Status
+                    entity.IsActive = isActive;
+                    entity.UpdatedById = LoggedUserId;
+                    entity.UpdatedOnUtc = GetDateTime;
+                    _sOPProcessService.UpdateSOPProcess(entity);
+
+                    return NoContent();
+                }
+                return ModelStateError(ModelState);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+        #endregion
+
+        [HttpDelete("{id}")]
+        [RecordScope(Vsky.Services.Authorization.RecordRule.SopProcess)]
+        [SiteOwned(typeof(Vsky.Models.SOPProcess))]
+        public IActionResult DeleteSOPProcess(string id)
+        {
+            try
+            {
+                var SiteId = _globalVariable.SiteId;
+
+                // Fetch the project entity by its ID
+                var entity = _sOPProcessService.GetSOPProcessById(SiteId, id);
+                // If no project is found, return a BadRequest response with an error message
+                if (entity == null)
+                    return BadRequest(new BadRequestError("No SOP process found with the specified id."));
+
+                // Delete the project using the project service
+                _sOPProcessService.DeleteSOPProcess(entity);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(SafeErrorMessage(ex));
+            }
+        }
+
+        #region private methods
+        private void AddSOPProcessStatusLog(
+            string sOPProcessId,
+            string statusId,
+            string LoggedUserId,
+            DateTime cDateTime
+        )
+        {
+            var statusLog = new SOPProcessStatusLog
+            {
+                SOPProcessId = sOPProcessId,
+                StatusId = statusId,
+                CreatedById = LoggedUserId,
+                CreatedOnUtc = cDateTime
+            };
+            _sOPProcessStatusLogService.InsertSOPProcessStatusLog(statusLog);
+        }
+        #endregion
+    }
+}

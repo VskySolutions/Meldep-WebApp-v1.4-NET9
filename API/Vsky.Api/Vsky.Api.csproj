@@ -1,0 +1,73 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Compile Remove="wwwroot\uploads\candidate\**" />
+      <Content Remove="wwwroot\uploads\candidate\**" />
+      <EmbeddedResource Remove="wwwroot\uploads\candidate\**" />
+      <None Remove="wwwroot\uploads\candidate\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="Controllers\OrganizationController.cs" />
+      <Compile Remove="Controllers\PersonContoller.cs" />
+      <Compile Remove="Controllers\RoleController.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+        <PackageReference Include="EPPlus" Version="7.5.0" />
+        <PackageReference Include="ExcelDataReader" Version="3.6.0" />
+        <PackageReference Include="ExcelDataReader.DataSet" Version="3.6.0" />
+        <PackageReference Include="Humanizer" Version="2.14.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.23" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.23" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.23">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.23" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.23">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="MiniProfiler.AspNetCore.Mvc" Version="4.5.4" />
+        <PackageReference Include="MiniProfiler.EntityFrameworkCore" Version="4.5.4" />
+        <PackageReference Include="Scalar.AspNetCore" Version="2.21.0" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.3.1" />
+    </ItemGroup>
+
+    <!-- AutoMapper 12.0.1 is kept on purpose (decided 20 Nov 2026): the fixed versions, 15.1.4+ and 16.3.0+,
+         need a commercial licence key. All three advisories are denial of service through very deeply nested
+         objects. Remove these lines when AutoMapper is upgraded or replaced. -->
+    <ItemGroup>
+        <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+        <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gpwp-5797-mjff" />
+        <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6vhm-j9h7-f9gh" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="App_Data\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vsky.Api.Framework\Vsky.Api.Framework.csproj" />
+        <ProjectReference Include="..\Vsky.Core\Vsky.Core.csproj" />
+        <ProjectReference Include="..\Vsky.Data\Vsky.Data.csproj" />
+        <ProjectReference Include="..\Vsky.Models\Vsky.Models.csproj" />
+        <ProjectReference Include="..\Vsky.Services\Vsky.Services.csproj" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+      <Optimize>True</Optimize>
+    </PropertyGroup>
+
+</Project>

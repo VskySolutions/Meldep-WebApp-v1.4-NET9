@@ -1,0 +1,180 @@
+import { useMultiSelectDropdown, useSingleSelectDropdown } from "composables/form-inputs/useDropdown.js";
+import commonService from "services/common.service";
+import projectService from "modules/project/projects.service";
+import employeesService from "src/modules/employee/employee.service";
+import { color } from "d3";
+
+export default function projectModule () {
+  const projectNameDropdown = useMultiSelectDropdown(projectService.getProjectsListForDropdown, {
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  const allProjectNameDropdown = useMultiSelectDropdown(projectService.getAllProjectsForDropdown,{
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  // Single Select
+  const projectNameDropdownSingleSelect = useSingleSelectDropdown(projectService.getProjectsListForDropdown, {
+    labelKey: "text",
+    valueKey: "value",
+    dataKey: "statusText"
+  });
+
+  const projectUsersByProjectIdForDropdown = useMultiSelectDropdown(projectService.getProjectUserByProjectId, {
+    labelKey: "user.person.fullName",
+    valueKey: "user.id"
+  });
+
+  const projectCategoriesDropdown = useMultiSelectDropdown(commonService.getDropdownTypeByGroupName, {
+    labelKey: "type",
+    valueKey: "id"
+  });
+
+  const projectEmployeesForDropdown = useMultiSelectDropdown(projectService.getProjectEmployees, {
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  const ProjectMappingUsersForDropdown = useMultiSelectDropdown(projectService.getProjectMappingUsers, {
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  const ProjectMappingUserDropdownSingleSelect = useSingleSelectDropdown(projectService.getProjectMappingUsers, {
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  const projectUserByProjectIdDropdownSingleSelect = useSingleSelectDropdown(projectService.getProjectUserByProjectId, {
+    labelKey: "user.person.fullName",
+    valueKey: "user.id"
+  });
+
+ const projectCharterEmployeesWithWeeklyPlanHoursForDropdown =  useSingleSelectDropdown(projectService.getProjectCharterEmployeesWithWeeklyPlanHoursByProjectId, {
+      valueKey: "employeeId",
+      labelKey: (item) => {
+        const weekendHours = item.employeeAssignedHours
+          ? item.employeeAssignedHours
+              .map(h => {
+                const date = new Date(h.weekendDate).toLocaleDateString("en-US", {
+                  month: "2-digit",
+                  day: "2-digit"
+                });
+                return `${date}-${h.totalHours}`;
+              })
+              .join("; ")
+          : "0";
+
+        return `${item.employeeName} (${weekendHours})`;
+      },
+      dataKey: "employeeName",
+      disableKey: "isActivityAssigned"
+    }
+  );
+
+  // 🔹 Status (Single Select)
+  const projectCategoryDropdownSingleSelect = useSingleSelectDropdown(commonService.getDropdownTypeByGroupName, {
+    labelKey: "type",
+    valueKey: "id"
+  });
+
+  const projectSubCategoryDropdownSingleSelect = useSingleSelectDropdown(commonService.getDropdownByTypeId, {
+    labelKey: "dropdownValue",
+    valueKey: "id",
+    dataKey: "description"
+  });
+
+  const projectTypeDropdownSingleSelect = useSingleSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectEmployeeDropdownSingleSelect = useSingleSelectDropdown(projectService.getProjectEmployees, {
+    labelKey: "text",
+    valueKey: "value"
+  });
+
+  const projectActiveInActiveDropdown = useSingleSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectArchiveUnarchiveDropdown = useSingleSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectApproverDropdownSingleSelect = useSingleSelectDropdown(employeesService.getAllActiveEmployeesListForDropdown, {
+    labelKey: "person.fullName",
+    valueKey: "id"
+  });
+
+  const projectPriorityDropdownSingleSelect = useMultiSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectPrioritiesDropdown = useMultiSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id",
+    colorKey: "color",
+    bgColorKey: "bgColor"
+  });
+
+  const projectTypesDropdown = useMultiSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectStatusDropdown = useMultiSelectDropdown(commonService.getDropDown, {
+    labelKey: "dropdownValue",
+    valueKey: "id"
+  });
+
+  const projectTagsDropdown = useMultiSelectDropdown(projectService.getAllProjectTagListForDropdown, {
+    labelKey: "text",
+    valueKey: "value",
+    colorKey: "color",
+    bgColorKey: "bgColor"
+  });
+
+  const siteProjectRolesDropdown = useMultiSelectDropdown(projectService.getAllSiteProjectRolesListForDropdown, {
+    labelKey: "masterProjectRoles.name",
+    valueKey: "id",
+    dataKey: "sitesProjectRolesPermissions"
+  });
+
+  const customerContactByProjectIdDropdownSingleSelect = useSingleSelectDropdown(projectService.getAllCustomerContactListByProjectIdForDropdown, {
+    labelKey: "person.fullName",
+    valueKey: "person.id"
+  });
+
+  return {
+    projectNameDropdown,
+    allProjectNameDropdown,
+    projectNameDropdownSingleSelect,
+    projectUsersByProjectIdForDropdown,
+    projectUserByProjectIdDropdownSingleSelect,
+    projectCategoriesDropdown,
+    projectActiveInActiveDropdown,
+    projectArchiveUnarchiveDropdown,
+    projectApproverDropdownSingleSelect,
+    projectPriorityDropdownSingleSelect,
+    projectPrioritiesDropdown,
+    projectTypesDropdown,
+    projectStatusDropdown,
+    projectEmployeesForDropdown,
+    ProjectMappingUsersForDropdown,
+    ProjectMappingUserDropdownSingleSelect,
+    projectCharterEmployeesWithWeeklyPlanHoursForDropdown,
+    projectCategoryDropdownSingleSelect,
+    projectSubCategoryDropdownSingleSelect,
+    projectTypeDropdownSingleSelect,
+    projectEmployeeDropdownSingleSelect,
+    projectTagsDropdown,
+    siteProjectRolesDropdown,
+    customerContactByProjectIdDropdownSingleSelect
+  };
+}
