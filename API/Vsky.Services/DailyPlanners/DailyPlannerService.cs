@@ -55,6 +55,8 @@ namespace Vsky.Services.DailyPlanners
             DateTime? activityDate,
             DateTime? fromDate,
             DateTime? toDate,
+            bool thisWeek,
+            int lastNumberOfWeeks,
             string sortBy,
             Dictionary<string, string> sorts,
             bool descending,
@@ -234,6 +236,7 @@ namespace Vsky.Services.DailyPlanners
                 Id = x.Id,
                 DailyPlannerDate = x.DailyPlannerDate,
                 IsForwordedToTimesheet = x.IsForwordedToTimesheet,
+                IsActionVisible = thisWeek && x.DailyPlannerDate >= DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.Date.DayOfWeek).AddDays(-(7 * lastNumberOfWeeks)),
                 Sites = new Site
                 {
                     Id = x.Sites.Id,

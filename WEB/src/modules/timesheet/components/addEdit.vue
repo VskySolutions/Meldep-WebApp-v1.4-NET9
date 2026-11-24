@@ -437,12 +437,6 @@ const rules = {
     required: helpers.withMessage(
       "Timesheet Date is required",
       required
-    ),
-    allowedDate: helpers.withMessage(
-      "Please select a Timesheet Date within the allowed date range.",
-      (value) =>
-        !value ||
-        getTimesheetAllowedDateRange(value)
     )
   }
 };
@@ -803,46 +797,31 @@ function getProjectTaskActivityByTaskId(projectId, moduleId, taskId, row, rowInd
   }
 }
 
-// function getTimesheetAllowedDateRange(date) {
-//   const today = new Date()
-//   today.setHours(0, 0, 0, 0)
-
-//   const selectedDate = new Date(date)
-//   selectedDate.setHours(0, 0, 0, 0)
-
-//   // Calculate Monday of the current week
-//   const startDate = new Date(today)
-//   const day = startDate.getDay()
-//   const daysSinceMonday = day === 0 ? 6 : day - 1
-
-//   startDate.setDate(startDate.getDate() - daysSinceMonday)
-
-//   return selectedDate >= startDate && selectedDate <= today
-// }
-
-function getTimesheetAllowedDateRange(date) {
+function getTimesheetAllowedDateRange(
+  date,
+  thisWeek,
+  lastNumberOfWeeks
+) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
   const selectedDate = new Date(date)
   selectedDate.setHours(0, 0, 0, 0)
 
-  // Calculate Monday of the current week
   const startDate = new Date(today)
-  const day = startDate.getDay()
-  const daysSinceMonday = day === 0 ? 6 : day - 1
 
-  startDate.setDate(startDate.getDate() - daysSinceMonday)
+  startDate.setDate(
+    startDate.getDate() -
+    startDate.getDay() -
+    (7 * lastNumberOfWeeks)
+  )
 
-  // Default: only current week
-  let allowedStartDate = new Date(startDate)
+  startDate.setHours(0, 0, 0, 0)
 
-  // Outsource Employee: allow previous week also
-  if (authStore.user.roles?.includes('outsource-employee')) {
-    allowedStartDate.setDate(allowedStartDate.getDate() - 7)
-  }
-  // return selectedDate >= startDate && selectedDate <= today
-  return selectedDate >= allowedStartDate && selectedDate <= today
+  return (
+    thisWeek &&
+    selectedDate >= startDate &&
+    selectedDate <= today
+  )
 }
 
 function getHoursMinutesText(value) {
@@ -979,7 +958,7 @@ async function onSubmit (shouldClose, buttonType) {
         timesheetLineModel: cleanedRows
       };
       const resp = await timesheetService.saveTimesheet(TimesheetId, payload);
-      if (resp.status === "warning") {        
+      if (resp.status === "warning") {
         notifyWarning({
           type: "warning",
           message: resp.message

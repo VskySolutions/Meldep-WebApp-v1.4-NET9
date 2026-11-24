@@ -16,6 +16,7 @@ namespace Vsky.Api.Models
         public DateTime? DailyPlannerDate { get; set; }
         public bool IsForwordedToTimesheet { get; set; }
         public decimal TotalHours { get; set; }
+        public bool IsActionVisible { get; set; }
         public virtual Site Sites { get; set; }
         public virtual EmployeeModel Employee { get; set; }
         public virtual ApplicationUser User { get; set; }
@@ -33,6 +34,8 @@ namespace Vsky.Api.Models
         public DateTime? ActivityDate { get; set; }
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
+        public bool ThisWeek { get; set; }
+        public int LastNumberOfWeeks { get; set; }
         public string SearchText { get; set; }
     }
 

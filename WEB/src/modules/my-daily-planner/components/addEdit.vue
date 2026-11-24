@@ -19,7 +19,7 @@
                     <div>
                       <formDate
                         v-model="model.dailyPlannerDateStr"
-                        label="Planner Date"                        
+                        label="Planner Date"
                         :readonly="true"
                         :dateOptions="(date) => getTimesheetAllowedDateRange(date, props.isForwarded, true, 1)"
                         :error="v$.dailyPlannerDateStr.$error"
@@ -341,17 +341,6 @@ const rules = {
     required: helpers.withMessage(
       "Daily planner Date is required",
       required
-    ),
-    allowedDate: helpers.withMessage(
-      "Please select a Planner Date within the allowed date range.",
-      (value) =>
-        !value ||
-        getTimesheetAllowedDateRange(
-          value,
-          props.isForwarded,
-          true,
-          1
-        )
     )
   }
 };

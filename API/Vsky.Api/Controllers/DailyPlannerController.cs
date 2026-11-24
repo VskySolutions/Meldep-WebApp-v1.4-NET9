@@ -127,7 +127,9 @@ namespace Vsky.Api.Controllers
                     searchModel.ProjectId,
                     searchModel.ActivityDate,
                     searchModel.FromDate, 
-                    searchModel.ToDate, 
+                    searchModel.ToDate,
+                    searchModel.ThisWeek,
+                    searchModel.LastNumberOfWeeks,
                     searchModel.SortBy,
                     searchModel.Sorts,
                     searchModel.Descending, 
@@ -143,6 +145,7 @@ namespace Vsky.Api.Controllers
                     obj.DailyPlannerDate = row.DailyPlannerDate;
                     obj.User = row.User;
                     obj.IsForwordedToTimesheet = row.IsForwordedToTimesheet;
+                    obj.IsActionVisible = row.IsActionVisible;
 
                     var lines = row.DailyPlannerLines.AsQueryable();
 

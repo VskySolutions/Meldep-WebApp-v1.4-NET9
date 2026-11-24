@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.VisualBasic;
 using Vsky.Core;
 
@@ -17,6 +18,9 @@ public class DailyPlanner : BaseEntity
     public string CreatedById { get; set; }
     public string UpdatedById { get; set; }
     public bool Deleted { get; set; }
+
+    [NotMapped]
+    public bool IsActionVisible { get; set; }
     // public decimal TotalHours { get; set; }
     public virtual Employee Employee { get; set; }
     public virtual Site Sites { get; set; }

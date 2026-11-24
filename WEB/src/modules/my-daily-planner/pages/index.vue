@@ -239,7 +239,7 @@
                     v-if="
                       !props.row.isForwordedToTimesheet &&
                       storedUser.username === props.row.user.userName &&
-                      isCurrentWeekDate(props.row.dailyPlannerDate)
+                      props.row.isActionVisible
                     "
                     name="o_forward"
                     class="cursor-pointer q-mr-sm"
@@ -468,7 +468,7 @@ const getDailyPlanners = async ({ pagination: p }) => {
     }
   }
 
-  const payload = { page, pageSize: rowsPerPage, sortBy, descending, sorts, ...search.value };
+  const payload = { thisWeek: true, lastNumberOfWeeks: 1, page, pageSize: rowsPerPage, sortBy, descending, sorts, ...search.value };
   saveDataTableState({
     search: search.value,
     pagination: p,
@@ -611,23 +611,6 @@ const sortColumn = (col) => {
   refreshDailyPlannerList();
 };
 
-function isCurrentWeekDate(date) {
-  if (!date) return false
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const selectedDate = new Date(date)
-  selectedDate.setHours(0, 0, 0, 0)
-
-  // Monday of current week
-  const daysSinceMonday = (today.getDay() + 6) % 7
-  const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - daysSinceMonday)
-
-  // Current week, Monday through today
-  return selectedDate >= startOfWeek && selectedDate <= today
-}
 // ----------------------------------------------------------------------------------------------------------------
 // Advance Filter:- Search and Clear
 // ----------------------------------------------------------------------------------------------------------------
