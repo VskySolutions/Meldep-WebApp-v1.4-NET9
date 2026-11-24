@@ -216,7 +216,7 @@ namespace Vsky.Api.Controllers
         //Title: GetEmployeeLeaveDetailsById
         //Description: This endpoint retrieves the details of a specific Leave based on its unique identifier(ID). 
         [HttpGet("{id}")]
-        [RecordScope(Vsky.Services.Authorization.RecordRule.Leave)]
+        //[RecordScope(Vsky.Services.Authorization.RecordRule.Leave)]
         public async Task<IActionResult> GetEmployeeLeaveDetailsById(string id)
         {
             try
