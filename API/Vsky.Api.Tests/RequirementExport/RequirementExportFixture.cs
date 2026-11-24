@@ -22,6 +22,9 @@ namespace Vsky.Api.Tests.RequirementExport
         public List<ProjectActionItems> ActionItemList { get; } = new();
         public List<RequirementDataMapping> MappingList { get; } = new();
         public List<Notes> NoteList { get; } = new();
+        public List<RequirementChangeLog> ChangeLogList { get; } = new();
+        public List<FilePathDetails> FileList { get; } = new();
+        public List<RequirementStatusTracking> StatusTrackingList { get; } = new();
 
         public IQueryable<Requirement> Requirements => RequirementList.AsQueryable();
         public IQueryable<ProjectTask> Tasks => TaskList.AsQueryable();
@@ -33,6 +36,9 @@ namespace Vsky.Api.Tests.RequirementExport
         public IQueryable<ProjectActionItems> ActionItems => ActionItemList.AsQueryable();
         public IQueryable<RequirementDataMapping> Mappings => MappingList.AsQueryable();
         public IQueryable<Notes> Notes => NoteList.AsQueryable();
+        public IQueryable<RequirementChangeLog> ChangeLogs => ChangeLogList.AsQueryable();
+        public IQueryable<FilePathDetails> Files => FileList.AsQueryable();
+        public IQueryable<RequirementStatusTracking> StatusTracking => StatusTrackingList.AsQueryable();
     }
 
     public sealed class FakeExportAuthorizer : IRequirementExportAuthorizer
@@ -124,6 +130,12 @@ namespace Vsky.Api.Tests.RequirementExport
             Q.ActionItemList.Add(new ProjectActionItems { Id = p + "ai", SiteId = siteId, RequirementId = reqId, Title = p + "Confirm IdP" });
             Q.MappingList.Add(new RequirementDataMapping { Id = p + "map", RequirementId = reqId, ProjectId = siteId == SiteId ? ProjectId : "proj-x", Source = p + "src", Target = p + "tgt" });
             Q.NoteList.Add(new Notes { Id = p + "note", SiteId = siteId, Type = RequirementExportDataSource.RequirementNoteType, SubModuleId = reqId, Note = p + "Requirement note" });
+            Q.ChangeLogList.Add(new RequirementChangeLog { Id = p + "log", RequirementId = reqId, RequirementLogDate = new DateTime(2026, 11, 4), RequirementName = p + "Login", Description = p + "Changed scope", CreatedOnUtc = new DateTime(2026, 11, 4, 9, 0, 0) });
+            Q.ChangeLogList.Add(new RequirementChangeLog { Id = p + "log-del", RequirementId = reqId, Description = p + "deleted log", Deleted = true });
+            Q.FileList.Add(new FilePathDetails { Id = p + "file", ModuleId = reqId, ModuleName = p + "Login revamp", FilePath = p + "https://docs/spec", FileName = p + "spec", Note = p + "refer this", CreatedOnUtc = new DateTime(2026, 11, 4, 9, 0, 0) });
+            Q.FileList.Add(new FilePathDetails { Id = p + "file-del", ModuleId = reqId, FilePath = p + "deleted file", FileName = p + "deleted file", Deleted = true });
+            Q.StatusTrackingList.Add(new RequirementStatusTracking { Id = p + "rst", RequirementId = reqId, ProjectId = ProjectId, TrackingDate = new DateTime(2026, 11, 5), CurrentPercent = 40m, TimeSpentAsOfToday = 2.6m, Scope = p + "In dev", CreatedOnUtc = new DateTime(2026, 11, 5, 9, 0, 0) });
+            Q.StatusTrackingList.Add(new RequirementStatusTracking { Id = p + "rst-del", RequirementId = reqId, Scope = p + "deleted tracking", Deleted = true });
         }
 
         public RequirementExportService Service(IRequirementExportDataSource source = null) =>

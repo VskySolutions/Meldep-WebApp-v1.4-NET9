@@ -463,6 +463,7 @@ async function getProjectTaskDetails() {
     model.value.requirementText = requirement
       ? `#${requirement.requirement.requirementNumber} (${requirement.requirement.status.dropDownValue})`
       : "-";
+
   } finally {
     loading.value = false;
   }

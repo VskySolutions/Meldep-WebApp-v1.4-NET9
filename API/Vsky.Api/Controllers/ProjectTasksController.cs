@@ -154,6 +154,7 @@ namespace Vsky.Api.Controllers
                     searchModel.PriorityIds,
                     searchModel.CustomerIds,
                     searchModel.CompanyContactIds,
+                    searchModel.AssignedToIds,
                     searchModel.ActivityOwners,
                     searchModel.Name,
                     searchModel.TaskTagsIds,
@@ -1780,7 +1781,7 @@ namespace Vsky.Api.Controllers
                     entity.UpdatedById = LoggedUserId;
                     entity.UpdatedOnUtc = GetDateTime;
                     _taskService.UpdateProjectTask(entity);
-                    
+
                     if (!string.IsNullOrEmpty(entity.AssignedToId))
                     {
                         var taskDetails = await _taskService.GetProjectTaskDetailsById(id);
@@ -1924,7 +1925,7 @@ namespace Vsky.Api.Controllers
                                     if (module == null)
                                         throw new Exception("Module not found");
 
-                                    
+
                                     moduleSortOrder = module.SortOrder;
                                     projectId = requirementData.Project.Id;
                                     projectModuleId = requirementData.ProjectModule.Id;
@@ -2134,7 +2135,7 @@ namespace Vsky.Api.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    var LoggedUserId = User.GetLoggedInUserId<string>();                    
+                    var LoggedUserId = User.GetLoggedInUserId<string>();
                     var SiteId = _globalVariable.SiteId;
                     var SiteData = await _siteService.GetById(SiteId);
                     var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
@@ -2609,7 +2610,7 @@ namespace Vsky.Api.Controllers
                             _projectModuleService.InsertProjectModule(moduleEntity);
 
                             // Loop through multiple requirements
-                            if(model.SelectedTaskList)
+                            if (model.SelectedTaskList)
                             {
                                 if (model.Requirements != null && model.Requirements.Count > 0)
                                 {
@@ -2756,7 +2757,7 @@ namespace Vsky.Api.Controllers
                             return NoContent();
                         }
                     }
-                    
+
                     return NoContent();
                 }
             }
@@ -3226,7 +3227,7 @@ namespace Vsky.Api.Controllers
                 searchModel.SortBy = "calendar";
 
             var fullPageSize = int.MaxValue;
-            var tasks = await _taskService.GetAllProjectTasks(SiteId, LoggedUserId, employeeId, searchModel.SearchText, searchModel.IsTemplate, searchModel.ProjectTaskNumber, searchModel.ProjectIds, searchModel.ProjectModuleIds, searchModel.RequirementIds, null, searchModel.ProjectLeadsIds, searchModel.StatusIds, searchModel.PriorityIds, searchModel.CustomerIds, searchModel.CompanyContactIds, searchModel.ActivityOwners, searchModel.Name, searchModel.TaskTagsIds, searchModel.SortBy, searchModel.Sorts, searchModel.Descending, 1, fullPageSize);
+            var tasks = await _taskService.GetAllProjectTasks(SiteId, LoggedUserId, employeeId, searchModel.SearchText, searchModel.IsTemplate, searchModel.ProjectTaskNumber, searchModel.ProjectIds, searchModel.ProjectModuleIds, searchModel.RequirementIds, null, searchModel.ProjectLeadsIds, searchModel.StatusIds, searchModel.PriorityIds, searchModel.CustomerIds, searchModel.CompanyContactIds, searchModel.AssignedToIds, searchModel.ActivityOwners, searchModel.Name, searchModel.TaskTagsIds, searchModel.SortBy, searchModel.Sorts, searchModel.Descending, 1, fullPageSize);
 
             // selected month 
             //var now = CalendarMonth;

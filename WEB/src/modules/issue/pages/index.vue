@@ -465,10 +465,11 @@
                     :editable="props.row.isEditable"
                     :options="issueStatusDropdownSingleSelect.list.value"
                     :active-edit="activeEdit"
-                    :show-history="false"
+                    :show-history="true"
                     tooltip="Status Change Log"
                     @cancel="activeEdit = { rowId: null, field: null }"
                     @submit="({ rowId, value }) => onSubmitIssueStatus(rowId, value, refreshIssueList)"
+                    @history="() => onIssueStatusLog(props.row.id)"
                   />
                 </q-td>
                 <q-td v-if="selectedColumnNames.includes('employee.person.firstName')">
@@ -541,13 +542,6 @@
                           >
                             <q-item-section avatar><q-icon name="o_edit" size="xs" /></q-item-section>
                             <q-item-section>Edit</q-item-section>
-                          </q-item>
-                          <q-item
-                            v-ripple clickable
-                            @click="setActiveRowIdInLocalStorage(props.row.id); onIssueStatusLog(props.row.id)"
-                          >
-                            <q-item-section avatar><q-icon name="o_groups" size="xs" /></q-item-section>
-                            <q-item-section>Issue Status change log</q-item-section>
                           </q-item>
                           <q-item
                             v-ripple clickable

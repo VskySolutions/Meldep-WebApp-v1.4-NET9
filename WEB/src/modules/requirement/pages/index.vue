@@ -976,18 +976,6 @@
                     View
                   </q-tooltip>
                 </q-icon>
-                <!-- The all-in-one requirement details page (v2) -->
-                <q-icon
-                  name="o_dashboard_customize"
-                  class="cursor-pointer q-mr-sm"
-                  color="primary"
-                  size="xs"
-                  @click="setActiveRowIdInLocalStorage(props.row.id);$router.push({ name: 'requirement-v2-detail', params: { id: props.row.id } })"
-                >
-                  <q-tooltip>
-                    View (v2)
-                  </q-tooltip>
-                </q-icon>
                 <q-icon
                   v-if="props.row.isEditable && !isViewer"
                   name="o_description"
@@ -1035,7 +1023,7 @@
                     :label="props.row.requirementNotesCount"
                   />
                 </a>
-                <q-btn
+                <!-- <q-btn
                   dense
                   flat
                   icon="o_file_download"
@@ -1047,7 +1035,17 @@
                   @click.stop="requirementExport.exportRow(props.row)"
                 >
                   <q-tooltip>Export Requirement</q-tooltip>
-                </q-btn>
+                </q-btn> -->
+                <q-icon
+                  name="o_file_download"
+                  size="xs"
+                  class="q-icon notranslate cursor-pointer q-ml-sm"
+                  :loading="requirementExport.isExporting(props.row.id)"
+                  :class="{ 'disabled': requirementExport.isExporting(props.row.id) }"
+                  @click.stop="!requirementExport.isExporting(props.row.id) && requirementExport.exportRow(props.row)"
+                >
+                  <q-tooltip>Export Requirement</q-tooltip>
+                </q-icon>
                 <q-btn dense flat icon="o_more_vert" color="primary">
                   <q-tooltip>More Options</q-tooltip>
                   <q-menu auto-close>

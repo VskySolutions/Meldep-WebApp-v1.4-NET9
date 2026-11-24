@@ -14,7 +14,13 @@ namespace Vsky.Api.Services.RequirementExport
         Number,
         Date,
         DateTime,
-        Boolean
+        Boolean,
+
+        /// <summary>
+        /// Decimal hours as stored (2.6 = 2h36m), written as an Excel time value shown as HH:MM, the same
+        /// way the app displays it via HoursConverter. Still a number, so SUM works.
+        /// </summary>
+        Duration
     }
 
     public sealed class RequirementExportColumn

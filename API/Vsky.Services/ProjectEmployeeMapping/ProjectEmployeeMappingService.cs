@@ -29,7 +29,7 @@ namespace Vsky.Services.ProjectEmployeeMappings
         /// </summary>
         /// <param name="projectEmployeeMappingRepository"></param>
         public ProjectEmployeeMappingService(
-            UserManager<ApplicationUser> userManager, 
+            UserManager<ApplicationUser> userManager,
             IRepository<ProjectEmployeeMapping> projectEmployeeMappingRepository,
             IRepository<VWEmployeeAssignedHours> vWEmployeeAssignedHoursRepository
         ,
@@ -208,8 +208,14 @@ namespace Vsky.Services.ProjectEmployeeMappings
             if (string.IsNullOrEmpty(projectId))
                 return new List<CommonDropDown>();
 
+            // Split comma-separated project IDs
+            var projectIdArray = projectId.Split(',')
+                                          .Select(x => x.Trim())
+                                          .Where(x => !string.IsNullOrEmpty(x))
+                                          .ToArray();
+
             var list = await _projectEmployeeMappingRepository.TableNoTracking
-               .Where(x => !x.Deleted && x.ProjectId == projectId && x.Employee.Active)
+               .Where(x => !x.Deleted && projectIdArray.Contains(x.ProjectId) && x.Employee.Active)
                 // Remove duplicate employees
                 .GroupBy(x => new
                 {

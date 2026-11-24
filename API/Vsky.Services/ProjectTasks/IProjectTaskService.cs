@@ -11,13 +11,13 @@ namespace Vsky.Services.ProjectTasks
     {
         #region GetAllProjectTasks
         Task<IPagedList<ProjectTask>> GetAllProjectTasks(
-            string SiteId, 
+            string SiteId,
             string LoggedUserId,
             string employeeId,
             string SearchText,
             bool isTemplate,
             int projectTaskNumber,
-            List<string> projectIds, 
+            List<string> projectIds,
             List<string> projectModuleIds,
             List<string> requirementIds,
             List<string> projectTaskIds,
@@ -26,12 +26,13 @@ namespace Vsky.Services.ProjectTasks
             List<string> priorityIds,
             List<string> customerIds,
             List<string> companyContactIds,
-            List<string> activityOwners, 
-            string taskName, 
-            List<string> TaskTagsIds, 
+            List<string> assignedToIds,
+            List<string> activityOwners,
+            string taskName,
+            List<string> TaskTagsIds,
             string sortBy,
             Dictionary<string, string> sorts,
-            bool descending, 
+            bool descending,
             int page = 1,
             int pageSize = int.MaxValue
         );
@@ -40,27 +41,27 @@ namespace Vsky.Services.ProjectTasks
             string loggedUserId,
             string employeeId,
             string projectId,
-            string sortBy, 
+            string sortBy,
             bool descending,
-            int page = 1, 
+            int page = 1,
             int pageSize = int.MaxValue
         );
-        IPagedList<ProjectTask> GetAllProjectTaskDetailsList(string SiteId, 
+        IPagedList<ProjectTask> GetAllProjectTaskDetailsList(string SiteId,
             List<string> projectIds,
             string sortByFilterId,
-            string taskName, 
+            string taskName,
             List<string> activityOwners,
-            List<string> customerIds, 
+            List<string> customerIds,
             List<string> companyContactIds,
-            string sortBy, 
-            bool descending, 
-            int page = 1, 
+            string sortBy,
+            bool descending,
+            int page = 1,
             int pageSize = int.MaxValue
         );
-        IPagedList<ProjectTask> GetAllHighPrioritiesTaskForDashboard(string SiteId, 
+        IPagedList<ProjectTask> GetAllHighPrioritiesTaskForDashboard(string SiteId,
             string activityOwnerId,
-            string highPriorityId, 
-            string sortBy, 
+            string highPriorityId,
+            string sortBy,
             bool descending,
             int page = 1,
             int pageSize = int.MaxValue
@@ -91,9 +92,9 @@ namespace Vsky.Services.ProjectTasks
         List<VWProjectTaskStatusSummary> GetTaskStatusSummaryByProjectIds(List<string> projectIds);
 
         #region GetAllProjectTaskListForDropdwon
-        Task<List<ProjectTask>> GetAllProjectTaskListForDropdown(string SiteId, 
-            string projectId = null, 
-            string projectModuleId=null, 
+        Task<List<ProjectTask>> GetAllProjectTaskListForDropdown(string SiteId,
+            string projectId = null,
+            string projectModuleId = null,
             string employeeId = null
         );
         Task<List<CommonDropDown>> GetAllProjectMultiTaskListForDropdown(string siteId, bool isTemplate, string projectId = null, string projectModuleId = null);
@@ -156,7 +157,7 @@ namespace Vsky.Services.ProjectTasks
         #endregion
 
         #region GetTaskByProjectModuleId
-        Task<List<ProjectTask>> GetTaskByProjectModuleId(string projectModuleId, string pageName="", bool isShowCloseStatus = false);
+        Task<List<ProjectTask>> GetTaskByProjectModuleId(string projectModuleId, string pageName = "", bool isShowCloseStatus = false);
         #endregion
 
         #region GetAllTaskByProjectModuleIdForMoveModuleAsProject

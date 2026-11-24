@@ -126,7 +126,7 @@ const projectId = props.projectId;
 // Common variables
 const selectedRequirementId = ref(props.id);
 const loading = ref(true);
-const tab = ref("3_tab");
+const tab = ref("1_tab");
 
 // noteType and NoteTypeId
 const clientMeetingNoteType="Client Meeting Updates";
@@ -198,7 +198,7 @@ onMounted(async () => {
 
   await noteTypeListSingleSelect.load("Note Type");
   clientMeetingNoteTypeId.value = await noteTypeListSingleSelect.getValueByLabel("Client Meeting Updates");
-  weeklyStatusNoteTypeId.value = await noteTypeListSingleSelect.getValueByLabel("Weekly Status");
+  weeklyStatusNoteTypeId.value = await noteTypeListSingleSelect.getValueByLabel(weeklyStatusNoteType);
   weeklyNextStepNoteTypeId.value = await noteTypeListSingleSelect.getValueByLabel("Weekly Next Steps");
   roadBlockNoteTypeId.value = await noteTypeListSingleSelect.getValueByLabel("Roadblocks");
 });

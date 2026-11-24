@@ -23,8 +23,8 @@ namespace Vsky.Services.ReportSettingDetail
         private readonly IApplicationUserRoleService _applicationUserRoleService;
 
         public ReportSettingDetailService(
-            IRepository<ReportSettingsDetails> reportSettingsDetailsRepository, 
-            UserManager<ApplicationUser> userManager, 
+            IRepository<ReportSettingsDetails> reportSettingsDetailsRepository,
+            UserManager<ApplicationUser> userManager,
             ISiteService siteService,
             IApplicationUserRoleService applicationUserRoleService
         )
@@ -65,7 +65,7 @@ namespace Vsky.Services.ReportSettingDetail
 
             //var query = _reportSettingsDetailsRepository.TableNoTracking.Where(x => !x.Deleted && x.ReportSetting.SiteId == SiteId);
             var query = _reportSettingsDetailsRepository.TableNoTracking.Where(x => !x.Deleted && x.SiteId == SiteId);
-       
+
             bool isAdmin = await IsCurrentUserAdmin(userId, SiteId);
             if (!isAdmin && !showAllReports)
                 query = query.Where(p => reportGroupIdsForRoles.Contains(p.ReportGroupId) || p.ReportUserMapping.Any(m => !m.Deleted && m.AspNetUserId == userId && (m.FullAccess || m.ViewOnly)));
@@ -91,36 +91,38 @@ namespace Vsky.Services.ReportSettingDetail
             {
                 query = query.Where(m =>
                 m.ReportName.ToLower().Contains(SearchText.ToLower()) ||
-                m.ReportGroup.DropDownValue.ToLower().Contains(SearchText.ToLower())||
+                m.ReportGroup.DropDownValue.ToLower().Contains(SearchText.ToLower()) ||
                 m.ReportDescription.ToLower().Contains(SearchText.ToLower()) ||
                 m.Url.ToLower().Contains(SearchText.ToLower())
                 );
             }
 
-             query = query
-            .OrderBy(x => x.ReportGroup.DropDownValue)
-            .ThenBy(x => x.ReportName).Select(x => new ReportSettingsDetails
-             {
-                 Id = x.Id,
-                 ReportId = x.ReportId,
-                 ReportGroupId = x.ReportGroupId,
-                 ReportName = x.ReportName,
-                 ReportDescription = x.ReportDescription,
-                 Url = x.Url,
-                 ReportGroup = new DropDown { Id = x.ReportGroup.Id, DropDownValue = x.ReportGroup.DropDownValue },
-                 ReportSetting = new ReportSettings
-                 {
-                    WorkspaceId = x.ReportSetting.WorkspaceId,
-                    SiteId = x.ReportSetting.SiteId
-                 },
-                ReportUserMapping = x.ReportUserMapping.Where(m => !m.Deleted && m.ReportSettingsDetailId == x.Id && (showAllReports || isAdmin || m.AspNetUserId == userId)).Take(1).Select(m => new ReportUserMapping
-                 {
-                     Id = m.Id,
-                     AspNetUserId = m.AspNetUserId,
-                     FullAccess = m.FullAccess,
-                     ViewOnly = m.ViewOnly
-                 }).ToList(),
-             });
+            query = query
+           .OrderBy(x => x.ReportGroup.DropDownValue)
+           .ThenBy(x => x.ReportName).Select(x => new ReportSettingsDetails
+           {
+               Id = x.Id,
+               ReportId = x.ReportId,
+               ReportGroupId = x.ReportGroupId,
+               ReportTypeId = x.ReportTypeId,
+               ReportName = x.ReportName,
+               ReportDescription = x.ReportDescription,
+               Url = x.Url,
+               ReportGroup = new DropDown { Id = x.ReportGroup.Id, DropDownValue = x.ReportGroup.DropDownValue },
+               ReportSetting = new ReportSettings
+               {
+                   WorkspaceId = x.ReportSetting.WorkspaceId,
+                   SiteId = x.ReportSetting.SiteId
+               },
+               ReportType = new DropDown { Id = x.ReportType.Id, DropDownValue = x.ReportType.DropDownValue },
+               ReportUserMapping = x.ReportUserMapping.Where(m => !m.Deleted && m.ReportSettingsDetailId == x.Id && (showAllReports || isAdmin || m.AspNetUserId == userId)).Take(1).Select(m => new ReportUserMapping
+               {
+                   Id = m.Id,
+                   AspNetUserId = m.AspNetUserId,
+                   FullAccess = m.FullAccess,
+                   ViewOnly = m.ViewOnly
+               }).ToList(),
+           });
 
             var list = new PagedList<ReportSettingsDetails>(query, page, pageSize);
             return await Task.FromResult(list);
@@ -132,6 +134,36 @@ namespace Vsky.Services.ReportSettingDetail
         public async Task<ReportSettingsDetails> GetById(string id)
         {
             var query = _reportSettingsDetailsRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+            var item = await query.FirstOrDefaultAsync();
+            return item;
+        }
+        #endregion
+
+        #region GetReportDetailsById
+        // Title: GetReportDetailsById
+        public async Task<ReportSettingsDetails> GetReportDetailsById(string id)
+        {
+            var query = _reportSettingsDetailsRepository.TableNoTracking.Where(x => !x.Deleted && x.Id == id);
+
+            query = query.Select(x => new ReportSettingsDetails
+            {
+                Id = x.Id,
+                ReportName = x.ReportName,
+                ReportGroupId = x.ReportGroupId,
+                ReportTypeId = x.ReportTypeId,
+                Url = x.Url,
+                ReportDescription = x.ReportDescription,
+                ReportGroup = new DropDown
+                {
+                    Id = x.ReportGroup.Id,
+                    DropDownValue = x.ReportGroup.DropDownValue,
+                },
+                ReportType = new DropDown
+                {
+                    Id = x.ReportType.Id,
+                    DropDownValue = x.ReportType.DropDownValue,
+                }
+            });
             var item = await query.FirstOrDefaultAsync();
             return item;
         }

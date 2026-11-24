@@ -4,20 +4,6 @@
       <div class="q-gutter-y-md">
         <fieldset v-if="isShow">
           <legend>Note Info</legend>
-          <div v-if="showNoteType" class="row q-col-gutter-x-md q-mb-md">
-            <div class="col-12">
-              <div class="q-mb-xs text-black">
-                <label>Note Type</label>
-              </div>
-              <q-radio
-                v-for="option in noteTypeListSingleSelect.list.value"
-                :key="option.value"
-                v-model="model.noteTypeId"
-                :val="option.value"
-                :label="option.text"
-              />
-            </div>
-          </div>
           <div class="row q-col-gutter-x-md q-mb-md">
             <div class="col-12">
               <div class="q-mb-xs text-black"><label>Add Note</label><span class="required">*</span></div>
@@ -65,6 +51,7 @@
               label="Save"
               class="actionBtn"
               :loading="processing"
+              :disable="!isNotesLoaded"
               no-caps
               @click="onSubmit()"
             />
@@ -104,7 +91,6 @@
               <q-tr class="" :props="props" :class="activeRowId == props.row.id ? 'highlight' : ''">
                 <q-td style="width: 10%;">{{ props.row.createdOnUtc }}</q-td>
                 <q-td style="width: 20%;">{{ props.row.user?.person?.firstName }} {{ props.row.user?.person?.lastName }}</q-td>
-                <q-td v-if="showNoteType" style="width: 10%;">{{ props.row.noteType?.dropDownValue }}</q-td>
                 <q-td style="white-space: break-spaces;" @click="showComment(props.row.note)">
                   <div class="clamped-text RichTextEditor" v-safe-html="removeLeadingSpaces(props.row.note)" />
                 </q-td>
@@ -189,6 +175,7 @@ const isDialogOpen = ref(false);
 const currentComment = ref("");
 const filteredUsers = ref([]);
 const showSuggestions = ref(false);
+const isNotesLoaded = ref(false);
 const { fonts, toolbar } = getEditorConfig($q);
 const filter = ref("");
 
@@ -199,12 +186,10 @@ const props = defineProps({
   module: { type: String, default: "" },
   name: { type: String, default: "" },
   isShow: { type: Boolean, default: true },
-  label: { type: String, default: ""},
-  showNoteType: { type: Boolean, default: false }
+  label: { type: String, default: ""}
 });
 
 const isShow = props.isShow;
-const showNoteType = computed(() => props.showNoteType);
 
 // Define model values
 const model = ref({
@@ -232,16 +217,6 @@ const columns = computed(() => {
     }
   ];
 
-  if (showNoteType.value) {
-    cols.push({
-      name: "noteType.dropDownValue",
-      label: "Note Type",
-      field: "noteType.dropDownValue",
-      align: "left",
-      sortable: true
-    });
-  }
-
   cols.push({
     name: "note",
     label: "Note",
@@ -259,11 +234,14 @@ const rules = {
 const v$ = useVuelidate(rules, model, { $lazy: true, $autoDirty: true });
 
 const getAllNoteByTypeAndRecord = () => {
+  debugger;
   loading.value = true;
+  isNotesLoaded.value = false;
   commonService.getAllNoteByTypeAndRecord(props.id, props.type, true).then((resp) => {
     rows.value = _.cloneDeep(resp);
   }).finally(() => {
     loading.value = false;
+    isNotesLoaded.value = true;
   });
 };
 
@@ -279,7 +257,7 @@ const filterRows = (data, searchTerm) => {
 
     const createdDate = row.createdOnUtc || "";
 
-    const noteType = row.noteType?.dropDownValue || "";
+    // const noteType = row.noteType?.dropDownValue || "";
 
     // Convert note HTML into plain text for searching.
     const noteText = (row.note || "")
@@ -294,7 +272,7 @@ const filterRows = (data, searchTerm) => {
     return (
       createdBy.toLowerCase().includes(lowerCaseTerm) ||
       createdDate.toLowerCase().includes(lowerCaseTerm) ||
-      noteType.toLowerCase().includes(lowerCaseTerm) ||
+     // noteType.toLowerCase().includes(lowerCaseTerm) ||
       noteText.toLowerCase().includes(lowerCaseTerm)
     );
   });

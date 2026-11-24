@@ -24,6 +24,7 @@ namespace Vsky.Api.Services.RequirementExport
 
         private const string DateFormat = "yyyy-mm-dd";
         private const string DateTimeFormat = "yyyy-mm-dd hh:mm";
+        internal const string DurationFormat = "[hh]:mm"; // [] so totals over 24h don't wrap
         private const double MaxColumnWidth = 60;
         private static readonly char[] ForbiddenSheetChars = { '[', ']', ':', '*', '?', '/', '\\' };
 
@@ -63,7 +64,12 @@ namespace Vsky.Api.Services.RequirementExport
             ws.Column(1).Width = 28;
             ws.Column(2).Width = 80;
             ws.Column(2).Style.WrapText = true;
-            ws.Cells[1, 1, Math.Max(row - 1, 1), 2].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+            using (var all = ws.Cells[1, 1, Math.Max(row - 1, 1), 2])
+            {
+                all.Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                // Numbers and dates default to right-aligned in Excel; keep every label and value flush left.
+                all.Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            }
             ws.View.FreezePanes(2, 1);
         }
 
@@ -111,6 +117,16 @@ namespace Vsky.Api.Services.RequirementExport
         /// <summary>Writes Value only — never Formula — so text such as "=HYPERLINK(...)" stays inert text.</summary>
         internal static void SetCell(ExcelRange cell, object value, RequirementExportCellKind kind)
         {
+            if (kind == RequirementExportCellKind.Duration && value is decimal or double or float or int or long)
+            {
+                // Round to whole minutes like HoursConverter.ConvertDecimalHoursToTime, then store as a
+                // fraction of a day so Excel renders HH:MM and can still total the column.
+                var minutes = Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture) * 60m, MidpointRounding.AwayFromZero);
+                cell.Value = (double)(minutes / 1440m);
+                cell.Style.Numberformat.Format = DurationFormat;
+                return;
+            }
+
             switch (value)
             {
                 case null:
@@ -147,6 +163,7 @@ namespace Vsky.Api.Services.RequirementExport
                 RequirementExportCellKind.Date => 12,
                 RequirementExportCellKind.DateTime => 18,
                 RequirementExportCellKind.Boolean => 8,
+                RequirementExportCellKind.Duration => 8,
                 RequirementExportCellKind.Number => Math.Max(8, Convert.ToString(value, CultureInfo.InvariantCulture)?.Length + 2 ?? 8),
                 _ => (value as string)?.Split('\n').Max(l => l.Length) + 2 ?? 10
             };

@@ -93,6 +93,12 @@
                       :filter="activeEmployeesDropdown.filter"
                     />
                     <multiSelectDropdown
+                      v-model="search.assignedToIds"
+                      label="Task Owner"
+                      :options="projectEmployeesForDropdown.list.value"
+                      :filter="projectEmployeesForDropdown.filter"
+                    />
+                    <multiSelectDropdown
                       v-model="search.activityOwners"
                       label="Activity Owners"
                       :options="activeEmployeesDropdown.list.value"
@@ -1443,6 +1449,7 @@ const {
     requirementIds: [],
     projectTaskIds: [],
     projectLeadsIds: [],
+    assignedToIds: [],
     activityOwners: user?.employeeId
       ? [user.employeeId]
       : [],
@@ -1737,6 +1744,7 @@ const onClear = () => {
   search.value.statusIds = [];
   search.value.priorityIds = [];
   search.value.taskTagsIds = [];
+  search.value.assignedToIds = [];
 
   saveDataTableState({
     search: search.value
@@ -1767,6 +1775,7 @@ const appliedFilters = computed(() => ({
   ...mapFilterToLabel(search.value.requirementIds, requirementsByProjectModuleIdForDropdown.list, "Requirement"),
   ...mapFilterToLabel(search.value.projectTaskIds, projectTasksByProjectIdAndModuleIdForDropdown.list, "Project Task"),
   ...mapFilterToLabel(search.value.projectLeadsIds, activeEmployeesDropdown.list, "Project Leads"),
+  ...mapFilterToLabel(search.value.assignedToIds, projectEmployeesForDropdown.list, "Task Owner"),
   ...mapFilterToLabel(search.value.activityOwners, activeEmployeesDropdown.list, "Activity Owner"),
   ...mapFilterToLabel(search.value.statusIds, projectTaskStatusListWithDisables, "Task Status"),
   ...mapFilterToLabel(search.value.priorityIds, projectTaskPrioritiesForDropdown.list, "Task Priority"),
@@ -1792,6 +1801,8 @@ const onClearFilters = (key) => {
     search.value.projectLeadsIds = [];
   } else if (key === "Task Status") {
     search.value.statusIds = [];
+  } else if (key === "Task Owner") {
+    search.value.assignedToIds = [];
   } else if (key === "Activity Owner") {
     search.value.activityOwners = [];
   } else if (key === "Task Priority") {
@@ -1815,6 +1826,7 @@ function getFilterCount (key) {
   case "Project Task": return search.value.projectTaskIds?.length || 0;
   case "Project Leads": return search.value.projectLeadsIds?.length || 0;
   case "Task Status": return search.value.statusIds?.length || 0;
+  case "Task Owner": return search.value.assignedToIds?.length || 0;
   case "Activity Owner": return search.value.activityOwners?.length || 0;
   case "Task Priority": return search.value.priorityIds?.length || 0;
   case "Customer": return search.value.customerIds?.length || 0;
@@ -1828,7 +1840,7 @@ function getFilterCount (key) {
 // Advance Filter:- Initialization Of All DropDowns
 // ----------------------------------------------------------------------------------------------------------------
 
-const { projectNameDropdown, projectEmployeeDropdownSingleSelect } = projectModule();
+const { projectNameDropdown, projectEmployeeDropdownSingleSelect, projectEmployeesForDropdown } = projectModule();
 const { projectModulesByProjectIdForDropdown } = projectModuleOfProjectModule();
 const { projectTasksByProjectIdAndModuleIdForDropdown, projectTaskPrioritiesForDropdown, projectTaskTagsDropdown } = projectTaskModule();
 const { activeEmployeesDropdown } = employeeModule();
@@ -1992,6 +2004,7 @@ watch(() => search.value.projectIds, async (newValue, oldValue) => {
 
   if (!selectedProjectId) search.value.projectModuleIds = [];
   await projectModulesByProjectIdForDropdown.load(search.value.isTemplate, false, search.value.projectIds);
+  await projectEmployeesForDropdown.load(search.value.projectIds);
 }, { immediate: true });
 
 watch(() => search.value.projectModuleIds, (newValue, oldValue) => {

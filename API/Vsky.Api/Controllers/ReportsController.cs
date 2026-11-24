@@ -31,7 +31,7 @@ namespace Vsky.Api.Controllers
     {
         private string m_errorMessage;
         private readonly GlobalVariable _globalVariable;
-        private readonly ConfigValidatorService _configValidatorService ;
+        private readonly ConfigValidatorService _configValidatorService;
         private readonly EmbedService _embedService;
         private readonly IReportSettingsService _reportSettingsService;
         private readonly IReportSettingDetailService _reportSettingDetailService;
@@ -48,7 +48,7 @@ namespace Vsky.Api.Controllers
         public ReportsController(
             IMapper mapper,
             GlobalVariable globalVariable,
-            ConfigValidatorService configValidatorService, 
+            ConfigValidatorService configValidatorService,
             IReportSettingsService reportSettingsService,
             IReportSettingDetailService reportSettingDetailService,
             IReportRoleGroupMappingService reportRoleGroupMappingService,
@@ -92,10 +92,10 @@ namespace Vsky.Api.Controllers
                 //Get LoggedUser Info
                 var LoggedUserId = User.GetLoggedInUserId<string>();
                 var SiteId = _globalVariable.SiteId;
-                if ( SiteId != null)
+                if (SiteId != null)
                 {
                     var reportSettingData = await _reportSettingsService.GetBySiteId(SiteId);
-                    var embedResult = await _embedService.GetEmbedParams(Guid.Parse(reportSettingData.WorkspaceId), reportId, siteId:SiteId);
+                    var embedResult = await _embedService.GetEmbedParams(Guid.Parse(reportSettingData.WorkspaceId), reportId, siteId: SiteId);
                     return Ok(embedResult);
                 }
                 return BadRequest();
@@ -136,7 +136,7 @@ namespace Vsky.Api.Controllers
                 var reportSettingData = await _reportSettingsService.GetBySiteId(SiteId);
                 //if(reportSettingData == null) return BadRequest("Report Settings Missing");
 
-                if(reportSettingData == null)
+                if (reportSettingData == null)
                 {
                     _loggerService.Warning($"Report Settings Missing for SiteId: {SiteId}");
 
@@ -147,7 +147,7 @@ namespace Vsky.Api.Controllers
                 var reportIds = await _embedService.GetAllReportData(Guid.Parse(reportSettingData.WorkspaceId), SiteId);
                 model.ReportModelList = reportIds;
                 return Ok(model);
-                
+
                 //return BadRequest();
             }
             catch (HttpOperationException exc)
@@ -192,16 +192,16 @@ namespace Vsky.Api.Controllers
                              .Select(x => x.ReportGroupId)
                              .ToList();
 
-                var list = await  _reportSettingDetailService.GetAllReportsDetails(
+                var list = await _reportSettingDetailService.GetAllReportsDetails(
                                 SiteId,
                                 LoggedUserId,
                                 reportGroupIdsForRoles,
-                                searchModel.SearchText, 
-                                searchModel.ReportIds, 
-                                searchModel.ReportGroupId, 
-                                searchModel.SortBy, 
-                                searchModel.Descending, 
-                                searchModel.Page, 
+                                searchModel.SearchText,
+                                searchModel.ReportIds,
+                                searchModel.ReportGroupId,
+                                searchModel.SortBy,
+                                searchModel.Descending,
+                                searchModel.Page,
                                 searchModel.PageSize,
                                 false,
                                 true
@@ -224,7 +224,6 @@ namespace Vsky.Api.Controllers
 
         }
         #endregion
-
 
         #region GetAllReportListForDropdown
         // Title: GetAllReportListForDropdown
@@ -272,7 +271,7 @@ namespace Vsky.Api.Controllers
             try
             {
                 // Fetch the project entity by its ID from the service
-                var entity = await _reportSettingDetailService.GetById(id);
+                var entity = await _reportSettingDetailService.GetReportDetailsById(id);
                 // If the project entity is not found, return a BadRequest response with an error message
                 if (entity == null)
                     return BadRequest(new BadRequestError("No report found with the specified id."));
@@ -301,7 +300,7 @@ namespace Vsky.Api.Controllers
                     var SiteId = _globalVariable.SiteId;
                     var SiteData = await _siteService.GetById(SiteId);
                     var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
-                    
+
                     var exists = await _reportSettingDetailService.GetReportByName(SiteId, model.ReportName);
                     if (exists != null)
                         return BadRequest(new BadRequestError("The report name already exists"));
@@ -310,6 +309,7 @@ namespace Vsky.Api.Controllers
 
                     entity.Id = Guid.NewGuid().ToString();
                     entity.SiteId = SiteId;
+                    //entity.ReportTypeId = model.ReportTypeId;
 
                     if (!string.IsNullOrEmpty(model.ReportDescription))
                     {
@@ -370,6 +370,7 @@ namespace Vsky.Api.Controllers
                     entity.ReportName = model.ReportName;
                     entity.ReportGroupId = model.ReportGroupId;
                     entity.Url = model.Url;
+                    entity.ReportTypeId = model.ReportTypeId;
 
                     entity.ReportDescription = await _azureBlobImageServices
                             .ProcessHtmlAndManageImagesAsync(
@@ -481,7 +482,7 @@ namespace Vsky.Api.Controllers
 
                         foreach (var groupId in model.ReportGroupIds)
                         {
-                            
+
                             var entity = _mapper.Map<ReportRoleGroupMapping>(model);
 
                             entity.SiteId = SiteId;
@@ -527,7 +528,6 @@ namespace Vsky.Api.Controllers
             }
         }
         #endregion
-
 
         [HttpPut("updateGroupsRoleStatus/{id}")]
         public async Task<IActionResult> UpdateReportGroupsRoleStatus(string id)

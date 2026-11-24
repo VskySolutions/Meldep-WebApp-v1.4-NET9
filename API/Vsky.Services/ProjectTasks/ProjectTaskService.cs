@@ -103,6 +103,7 @@ namespace Vsky.Services.ProjectTasks
             List<string> priorityIds,
             List<string> customerIds,
             List<string> companyContactIds,
+            List<string> assignedToIds,
             List<string> activityOwners,
             string taskName,
             List<string> tagIds,
@@ -190,6 +191,7 @@ namespace Vsky.Services.ProjectTasks
             if (tagIds?.Any() == true) query = query.Where(x => x.ProjectTask_Tags.Any(t => !t.Deleted && t.AspNetUserId == userId && tagIds.Contains(t.Tags.Id)));
             if (customerIds?.Any() == true) query = query.Where(x => customerIds.Contains(x.Project.CustomerId));
             if (companyContactIds?.Any() == true) query = query.Where(x => companyContactIds.Contains(x.Project.CompanyContactId));
+            if (assignedToIds?.Any() == true) query = query.Where(x => assignedToIds.Contains(x.AssignedToId));
             if (activityOwners?.Any() == true) query = query.Where(x => x.ProjectActivities.Any(a => activityOwners.Contains(a.AssignedToId)));
 
             if (!string.IsNullOrWhiteSpace(taskName))
@@ -974,13 +976,25 @@ namespace Vsky.Services.ProjectTasks
                 query = query.Where(x => allowedProjectIds.Contains(x.ProjectId));
             }
 
+            //var list = await query
+            //   .OrderBy(x => x.ProjectModule.Name)
+            //   .Select(x => new CommonDropDown
+            //   {
+            //       Text = string.Concat(x.ProjectModule.Name, " / ", x.Name, " / ", x.ProjectTaskNumber, " / ", x.Project.Name),
+            //       Value = x.Id,
+            //   }).ToListAsync();
+
             var list = await query
-               .OrderBy(x => x.ProjectModule.Name)
-               .Select(x => new CommonDropDown
-               {
-                   Text = string.Concat(new object[] { x.ProjectModule.Name, " / ", x.Name, " / ", x.ProjectTaskNumber, " / ", x.Project.Name }),
-                   Value = x.Id,
-               }).ToListAsync();
+              .OrderBy(x => x.ProjectModule.Name)
+              .Select(x => new CommonDropDown
+              {
+                  Text = x.ProjectModule.Name + " / " +
+                         x.Name + " / " +
+                         x.ProjectTaskNumber + " / " +
+                         x.Project.Name,
+                  Value = x.Id
+              })
+              .ToListAsync();
 
             return list;
         }

@@ -26,6 +26,9 @@ namespace Vsky.Api.Services.RequirementExport
         IQueryable<ProjectActionItems> ActionItems { get; }
         IQueryable<RequirementDataMapping> Mappings { get; }
         IQueryable<Notes> Notes { get; }
+        IQueryable<RequirementChangeLog> ChangeLogs { get; }
+        IQueryable<FilePathDetails> Files { get; }
+        IQueryable<RequirementStatusTracking> StatusTracking { get; }
     }
 
     public sealed class DbContextRequirementExportQueries : IRequirementExportQueries
@@ -47,6 +50,9 @@ namespace Vsky.Api.Services.RequirementExport
         public IQueryable<ProjectActionItems> ActionItems => _db.Set<ProjectActionItems>().AsNoTracking();
         public IQueryable<RequirementDataMapping> Mappings => _db.Set<RequirementDataMapping>().AsNoTracking();
         public IQueryable<Notes> Notes => _db.Set<Notes>().AsNoTracking();
+        public IQueryable<RequirementChangeLog> ChangeLogs => _db.Set<RequirementChangeLog>().AsNoTracking();
+        public IQueryable<FilePathDetails> Files => _db.Set<FilePathDetails>().AsNoTracking();
+        public IQueryable<RequirementStatusTracking> StatusTracking => _db.Set<RequirementStatusTracking>().AsNoTracking();
     }
 
     public interface IRequirementExportDataSource
@@ -60,6 +66,9 @@ namespace Vsky.Api.Services.RequirementExport
         Task<List<RequirementActionItemRow>> GetActionItemsAsync(RequirementExportScope scope, CancellationToken ct = default);
         Task<List<RequirementMappingRow>> GetMappingsAsync(RequirementExportScope scope, CancellationToken ct = default);
         Task<List<RequirementNoteRow>> GetNotesAsync(RequirementExportScope scope, CancellationToken ct = default);
+        Task<List<RequirementChangeLogRow>> GetChangeLogsAsync(RequirementExportScope scope, CancellationToken ct = default);
+        Task<List<RequirementFileRow>> GetFilesAsync(RequirementExportScope scope, CancellationToken ct = default);
+        Task<List<RequirementStatusTrackingExportRow>> GetStatusTrackingAsync(RequirementExportScope scope, CancellationToken ct = default);
     }
 
     // Title: RequirementExportDataSource
@@ -119,7 +128,9 @@ namespace Vsky.Api.Services.RequirementExport
                     Description = x.Description,
                     Scope = x.Scope,
                     CreatedOnUtc = x.CreatedOnUtc,
-                    UpdatedOnUtc = x.UpdatedOnUtc
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
                 }), ct);
 
             return rows.FirstOrDefault();
@@ -142,7 +153,10 @@ namespace Vsky.Api.Services.RequirementExport
                 DueDate = x.DueDate,
                 EstimateTime = x.EstimateTime,
                 Description = x.Description,
-                CreatedOnUtc = x.CreatedOnUtc
+                CreatedOnUtc = x.CreatedOnUtc,
+                UpdatedOnUtc = x.UpdatedOnUtc,
+                CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
             }), ct);
         }
 
@@ -166,7 +180,10 @@ namespace Vsky.Api.Services.RequirementExport
                     Steps = x.Steps,
                     ExpectedResult = x.ExpectedResult,
                     ActualResult = x.ActualResult,
-                    CreatedOnUtc = x.CreatedOnUtc
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    CreatedBy = x.CreatedByUser == null || x.CreatedByUser.Person == null ? null : x.CreatedByUser.Person.FirstName + " " + x.CreatedByUser.Person.LastName,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
                 }), ct);
         }
 
@@ -186,9 +203,11 @@ namespace Vsky.Api.Services.RequirementExport
                     AssignedTo = x.Employee == null || x.Employee.Person == null ? null : x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
                     ReportedBy = x.ReportedBy == null || x.ReportedBy.Person == null ? null : x.ReportedBy.Person.FirstName + " " + x.ReportedBy.Person.LastName,
                     DueDate = x.DueDate,
-                    CloseDate = x.CloseDate,
                     Description = x.Description,
-                    CreatedOnUtc = x.CreatedOnUtc
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
                 }), ct);
         }
 
@@ -199,6 +218,10 @@ namespace Vsky.Api.Services.RequirementExport
             if (taskIds.Count == 0)
                 return new List<RequirementTimesheetRow>();
 
+            // Both the line and its timesheet header must be live, matching the employee's own Timesheet
+            // screen. Re-saving a day's timesheet soft-deletes the previous header but leaves its lines
+            // un-deleted; those lines are superseded versions, so exporting them would duplicate entries and
+            // inflate hours. Every live line on a live header is exported, including several on one date.
             var query =
                 from line in _q.TimesheetLines
                 join sheet in _q.Timesheets on line.TimesheetId equals sheet.Id
@@ -233,9 +256,34 @@ namespace Vsky.Api.Services.RequirementExport
                     Id = x.Id,
                     Title = x.Title,
                     Description = x.Description,
-                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
                     CreatedOnUtc = x.CreatedOnUtc,
-                    UpdatedOnUtc = x.UpdatedOnUtc
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    ContributorEmployee = string.Join(", ", x.ProjectQuestionAnswerContributors
+                    .Where(c => !c.Deleted && c.ContributorEmployee != null)
+                    .Select(c =>
+                        c.ContributorEmployee.Person.FirstName + " " +
+                        c.ContributorEmployee.Person.LastName)),
+                    ContributorCustomer = string.Join(", ", x.ProjectQuestionAnswerContributors
+                    .Where(c => !c.Deleted && c.ContributorCustomer != null)
+                    .Select(c =>
+                        c.ContributorCustomer.FirstName + " " +
+                        c.ContributorCustomer.LastName)),
+                    // A question can carry many answer logs; export every non-deleted one, newest first
+                    // (same order as the Q&A screen).
+                    Answers = x.ProjectQuestionsAnswersResponseLog
+                        .Where(a => !a.Deleted)
+                        .OrderByDescending(a => a.CreatedOnUtc)
+                        .ThenByDescending(a => a.Id)
+                        .Select(a => new RequirementQuestionAnswerRow
+                        {
+                            Id = a.Id,
+                            Description = a.Description,
+                            CreatedOnUtc = a.CreatedOnUtc,
+                            CreatedBy = a.CreatedBy == null || a.CreatedBy.Person == null ? null : a.CreatedBy.Person.FirstName + " " + a.CreatedBy.Person.LastName
+                        })
+                        .ToList()
                 }), ct);
         }
 
@@ -249,10 +297,21 @@ namespace Vsky.Api.Services.RequirementExport
                     Title = x.Title,
                     Priority = x.Priority == null ? null : x.Priority.DropDownValue,
                     Employee = x.Employee == null || x.Employee.Person == null ? null : x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
-                    Customer = x.Customer == null ? null : x.Customer.Name,
+                    //Customer = x.Customer == null ? null
+                    //    : x.Customer.Company != null ? x.Customer.Company.Name
+                    //    : x.Customer.Person == null ? null
+                    //    : string.Join(" ", x.Customer.Person.FirstName, x.Customer.Person.LastName).Trim(),
+
+                    Customer = x.Customer == null ? null
+                        : x.Customer.Company != null ? x.Customer.Company.Name
+                        : x.Customer.Person == null ? null
+                        : (x.Customer.Person.FirstName + " " + x.Customer.Person.LastName).Trim(),
                     DueDate = x.DueDate,
                     Description = x.Description,
-                    CreatedOnUtc = x.CreatedOnUtc
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
                 }), ct);
         }
 
@@ -271,7 +330,9 @@ namespace Vsky.Api.Services.RequirementExport
                     Target = x.Target,
                     IntegrationDirection = x.IntegrationDirection == null ? null : x.IntegrationDirection.DropDownValue,
                     CreatedOnUtc = x.CreatedOnUtc,
-                    UpdatedOnUtc = x.UpdatedOnUtc
+                    UpdatedOnUtc = x.UpdatedOnUtc,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName
                 }), ct);
         }
 
@@ -286,6 +347,67 @@ namespace Vsky.Api.Services.RequirementExport
                     Note = x.Note,
                     CreatedBy = x.User == null || x.User.Person == null ? null : x.User.Person.FirstName + " " + x.User.Person.LastName,
                     CreatedOnUtc = x.CreatedOnUtc
+                }), ct);
+        }
+
+        public Task<List<RequirementChangeLogRow>> GetChangeLogsAsync(RequirementExportScope scope, CancellationToken ct = default)
+        {
+            // RequirementChangeLog has no SiteId. The requirement was already resolved inside the active site,
+            // so the requirement predicate is the isolation boundary (same as Mappings).
+            return ToListAsync(_q.ChangeLogs
+                .Where(x => x.RequirementId == scope.RequirementId && !x.Deleted)
+                .Select(x => new RequirementChangeLogRow
+                {
+                    Id = x.Id,
+                    ChangeDate = x.RequirementLogDate,
+                    ChangedBy = x.Employee == null || x.Employee.Person == null ? null : x.Employee.Person.FirstName + " " + x.Employee.Person.LastName,
+                    ItemName = x.RequirementName,
+                    Description = x.Description,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    CreatedOnUtc = x.CreatedOnUtc
+                }), ct);
+        }
+
+        public Task<List<RequirementFileRow>> GetFilesAsync(RequirementExportScope scope, CancellationToken ct = default)
+        {
+            // FilePathDetails.ModuleId is the requirement FK (ModuleName only holds the requirement title) and
+            // the table has no SiteId; the requirement was already resolved inside the active site. Same
+            // filter as RequirementService when it loads the Requirement form.
+            return ToListAsync(_q.Files
+                .Where(x => x.ModuleId == scope.RequirementId && !x.Deleted)
+                .Select(x => new RequirementFileRow
+                {
+                    Id = x.Id,
+                    FilePath = x.FilePath,
+                    FileName = x.FileName,
+                    Note = x.Note,
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    UpdatedOnUtc = x.UpdatedOnUtc
+                }), ct);
+        }
+
+        public Task<List<RequirementStatusTrackingExportRow>> GetStatusTrackingAsync(RequirementExportScope scope, CancellationToken ct = default)
+        {
+            // Requirement_Status_Tracking has no SiteId; RequirementStatusTrackingService scopes it through the
+            // requirement's site, which the export already resolved, so the requirement predicate is the boundary.
+            return ToListAsync(_q.StatusTracking
+                .Where(x => x.RequirementId == scope.RequirementId && !x.Deleted)
+                .Select(x => new RequirementStatusTrackingExportRow
+                {
+                    Id = x.Id,
+                    TrackingDate = x.TrackingDate,
+                    Project = x.Project == null ? null : x.Project.Name,
+                    ProjectModule = x.ProjectModule == null ? null : x.ProjectModule.Name,
+                    CurrentPercent = x.CurrentPercent,
+                    TimeSpentAsOfToday = x.TimeSpentAsOfToday,
+                    EstimatedRemainingTime = x.EstimatedRemainingTime,
+                    Scope = x.Scope,
+                    Roadblock = x.Roadblock,
+                    EstimatedTimeForCompletion = x.EstimatedTimeForCompletion,
+                    CreatedBy = x.CreatedBy == null || x.CreatedBy.Person == null ? null : x.CreatedBy.Person.FirstName + " " + x.CreatedBy.Person.LastName,
+                    CreatedOnUtc = x.CreatedOnUtc,
+                    UpdatedBy = x.UpdatedBy == null || x.UpdatedBy.Person == null ? null : x.UpdatedBy.Person.FirstName + " " + x.UpdatedBy.Person.LastName,
+                    UpdatedOnUtc = x.UpdatedOnUtc
                 }), ct);
         }
 

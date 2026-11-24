@@ -2519,6 +2519,7 @@ namespace Vsky.Data
 
                 entity.HasOne(e => e.ReportSetting).WithMany().HasForeignKey(e => e.ReportSettingId);
                 entity.HasOne(e => e.ReportGroup).WithMany().HasForeignKey(e => e.ReportGroupId);
+                entity.HasOne(e => e.ReportType).WithMany().HasForeignKey(e => e.ReportTypeId);
                 entity.HasOne(e => e.Sites).WithMany().HasForeignKey(e => e.SiteId);
                 entity.HasOne(e => e.CreatedBy).WithMany().HasForeignKey(e => e.CreatedById);
                 entity.HasOne(e => e.UpdatedBy).WithMany().HasForeignKey(e => e.UpdatedById);

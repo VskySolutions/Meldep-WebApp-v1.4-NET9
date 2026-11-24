@@ -147,7 +147,7 @@ namespace Vsky.Services.ProjectQuestionsAnswer
                             .FirstOrDefault());
                 }
             }
-            else if(!string.IsNullOrWhiteSpace(sortBy))
+            else if (!string.IsNullOrWhiteSpace(sortBy))
             {
                 var orderBy = $"{GetOrderBy(sortBy)} {(descending ? "desc" : "asc")}";
                 query = query.OrderBy(orderBy);
@@ -287,7 +287,13 @@ namespace Vsky.Services.ProjectQuestionsAnswer
                 Requirement = new Requirement
                 {
                     Id = x.Requirement.Id,
-                    Title = x.Requirement.Title
+                    Title = x.Requirement.Title,
+                    ProjectModule = new ProjectModule
+                    {
+                        Id = x.Requirement.ProjectModule.Id,
+                        Name = x.Requirement.ProjectModule.Name
+
+                    }
                 }
             });
             var list = new PagedList<ProjectQuestionsAnswers>(query, page, pageSize);
@@ -343,7 +349,6 @@ namespace Vsky.Services.ProjectQuestionsAnswer
                 ProjectId = x.ProjectId,
                 Title = x.Title,
                 Description = x.Description,
-                CreatedOnUtc = x.CreatedOnUtc,
                 Project = new Project
                 {
                     Id = x.Project.Id,

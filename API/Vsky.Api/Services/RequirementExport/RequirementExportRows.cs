@@ -41,6 +41,8 @@ namespace Vsky.Api.Services.RequirementExport
         public string ShortDescription { get; set; }
         public string Description { get; set; }
         public string Scope { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
         public DateTime CreatedOnUtc { get; set; }
         public DateTime? UpdatedOnUtc { get; set; }
     }
@@ -55,12 +57,15 @@ namespace Vsky.Api.Services.RequirementExport
         public string Status { get; set; }
         public string Priority { get; set; }
         public string AssignedTo { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime? DueDate { get; set; }
         public decimal EstimateTime { get; set; }
         public string Description { get; set; }
         public DateTime CreatedOnUtc { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
     }
 
     public sealed class RequirementTestCaseRow
@@ -80,6 +85,9 @@ namespace Vsky.Api.Services.RequirementExport
         public string ExpectedResult { get; set; }
         public string ActualResult { get; set; }
         public DateTime CreatedOnUtc { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
     }
 
     public sealed class RequirementIssueRow
@@ -97,6 +105,9 @@ namespace Vsky.Api.Services.RequirementExport
         public DateTime? CloseDate { get; set; }
         public string Description { get; set; }
         public DateTime CreatedOnUtc { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
     }
 
     public sealed class RequirementTimesheetRow
@@ -114,6 +125,48 @@ namespace Vsky.Api.Services.RequirementExport
         public DateTime CreatedOnUtc { get; set; }
     }
 
+    /// <summary>One RequirementChangeLog entry (the Requirement form's description/change log grid).</summary>
+    public sealed class RequirementChangeLogRow
+    {
+        public string Id { get; set; }
+        public DateTime ChangeDate { get; set; }
+        public string ChangedBy { get; set; }
+        public string ItemName { get; set; }
+        public string Description { get; set; }
+        public string CreatedBy { get; set; }
+        public DateTime CreatedOnUtc { get; set; }
+    }
+
+    /// <summary>One FilePathDetails entry (the Requirement form's File Path grid).</summary>
+    public sealed class RequirementFileRow
+    {
+        public string Id { get; set; }
+        public string FilePath { get; set; }
+        public string FileName { get; set; }
+        public string Note { get; set; }
+        public DateTime CreatedOnUtc { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
+    }
+
+    /// <summary>One Requirement_Status_Tracking row for the requirement. Hour fields are decimal hours.</summary>
+    public sealed class RequirementStatusTrackingExportRow
+    {
+        public string Id { get; set; }
+        public DateTime TrackingDate { get; set; }
+        public string Project { get; set; }
+        public string ProjectModule { get; set; }
+        public decimal? CurrentPercent { get; set; }
+        public decimal? TimeSpentAsOfToday { get; set; }
+        public decimal? EstimatedRemainingTime { get; set; }
+        public string Scope { get; set; }
+        public string Roadblock { get; set; }
+        public decimal? EstimatedTimeForCompletion { get; set; }
+        public string CreatedBy { get; set; }
+        public DateTime CreatedOnUtc { get; set; }
+        public string UpdatedBy { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
+    }
+
     public sealed class RequirementQuestionRow
     {
         public string Id { get; set; }
@@ -122,6 +175,20 @@ namespace Vsky.Api.Services.RequirementExport
         public string CreatedBy { get; set; }
         public DateTime CreatedOnUtc { get; set; }
         public DateTime UpdatedOnUtc { get; set; }
+        public string UpdatedBy { get; set; }
+        public string ContributorEmployee { get; set; }
+        public string ContributorCustomer { get; set; }
+
+        /// <summary>Non-deleted ProjectQuestionsAnswersResponseLog entries (answer logs), oldest first.</summary>
+        public System.Collections.Generic.List<RequirementQuestionAnswerRow> Answers { get; set; } = new();
+    }
+
+    public sealed class RequirementQuestionAnswerRow
+    {
+        public string Id { get; set; }
+        public string Description { get; set; }
+        public string CreatedBy { get; set; }
+        public DateTime CreatedOnUtc { get; set; }
     }
 
     public sealed class RequirementActionItemRow
@@ -134,6 +201,9 @@ namespace Vsky.Api.Services.RequirementExport
         public DateTime? DueDate { get; set; }
         public string Description { get; set; }
         public DateTime CreatedOnUtc { get; set; }
+        public DateTime? UpdatedOnUtc { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
     }
 
     public sealed class RequirementMappingRow
@@ -145,6 +215,8 @@ namespace Vsky.Api.Services.RequirementExport
         public string IntegrationDirection { get; set; }
         public DateTime CreatedOnUtc { get; set; }
         public DateTime? UpdatedOnUtc { get; set; }
+        public string CreatedBy { get; set; }
+        public string UpdatedBy { get; set; }
     }
 
     public sealed class RequirementNoteRow

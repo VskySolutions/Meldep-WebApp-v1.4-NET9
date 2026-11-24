@@ -35,8 +35,16 @@
       <template #body="props">
         <q-tr
           :props="props" :class="activeRowId == props.row.id ? 'highlight' : ''"
-          :set="(preProjectName = null, preRequirementTitle = null)"
+          :set="(preProjectName = null, preProjectModuleName = null, preRequirementTitle = null)"
         >
+          <q-td class="hoverable-cell" style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal;"  @click="onProjectModuleView(props.row.requirement.projectModule.id)">
+            <span
+              v-if="preProjectModuleName !== props.row.requirement.projectModule.name"
+              :set="preProjectModuleName = props.row.requirement.projectModule.name"
+            >
+              {{ props.row.requirement?.projectModule?.name || '-' }}
+            </span>
+          </q-td>
           <q-td class="hoverable-cell" style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal; width: 20%;">
             <span
             v-if="preRequirementTitle !== props.row.requirement.title"
@@ -56,7 +64,7 @@
           <q-td style="width: 20%;">
             <span>
               <p v-safe-html="props.row.lastAnswer ? props.row.lastAnswer : props.row.description" />
-            </span>            
+            </span>
           </q-td>
         </q-tr>
         <q-separator />
@@ -76,6 +84,12 @@ import {
   onRequirementView
 } from "src/modules/requirement/utils/dialogs.js";
 
+// Shared Project Module Dialogs
+import {
+  initProjectModuleDialogs,
+  onProjectModuleView
+} from "src/modules/project-modules/utils/dialogs.js";
+
 const props = defineProps({ projectId: { type: String, default: "" } });
 const projectId = props.projectId;
 const { toDate } = useFilters();
@@ -88,6 +102,7 @@ const activeRowId = ref(null);
 const filterQandA = ref("");
 const paginationQA = ref({ sortBy: "createdOnUtc", descending: true, rowsPerPage: 20, page: 1 });
 const columnsQandA = ref([
+  { name: "requirement.projectModule.name", label: "Project Module", field: "requirement.projectModule.name", align: "left", sortable: true },
   { name: "requirement.title", label: "Requirement", field: "requirement.title", align: "left", sortable: true },
   { name: "title", label: "Question", field: "title", align: "left", sortable: true },
   { name: "description", label: "Answer", field: "description", align: "left", sortable: true }
@@ -119,6 +134,7 @@ const getAllProjectQuestionAndAnswersForDashboard = (props) => {
 // DataTable:- Initialization Of Dialogs, Actions (SOP Change)
 // ------------------------------------------------------------------------------------
 initRequirementDialogs(activeRowId);
+initProjectModuleDialogs(activeRowId);
 
 // for static filter
 const filterRows = (data, searchTerm, columns) => {

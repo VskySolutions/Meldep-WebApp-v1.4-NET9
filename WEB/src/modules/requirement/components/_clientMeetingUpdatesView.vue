@@ -403,6 +403,7 @@ function getProjectEmployees (projectId) {
 
 // save note
 const sendNote = async (note = null) => {
+  debugger;
   // Prevent double submit
   if (processing.value || editNoteProcessing.value) return;
   try {
