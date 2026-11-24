@@ -73,6 +73,7 @@ namespace Vsky.Api.Authorization
         public const string RequirementGroup = "/requirement-group";
         public const string RequirementDataMapping = "/requirement-data-mapping";
         public const string Requirement = "/requirement";
+        //public const string RequirementV2 = "/requirement-v2";
         public const string TestCase = "/test-case";
         public const string TestPlan = "/test-plan";
 

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Numerics;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
@@ -1116,15 +1117,71 @@ namespace Vsky.Api.Controllers
         #endregion
 
         #region ExportTimesheet
-        static string ParseHtmlDescription(string html)
+        //static string ParseHtmlDescription(string html)
+        //{
+        //    HtmlDocument doc = new HtmlDocument();
+        //    doc.LoadHtml(html);
+
+        //    // Decode HTML entities and combine all text nodes into a single string
+        //    return string.Join("\n", doc.DocumentNode.SelectNodes("//li")?.Select(li => HttpUtility.HtmlDecode(li.InnerText.Trim()))
+        //                         ?? doc.DocumentNode.SelectNodes("//p")?.Select(p => HttpUtility.HtmlDecode(p.InnerText.Trim()))
+        //                         ?? new[] { HttpUtility.HtmlDecode(doc.DocumentNode.InnerText.Trim()) });
+        //}
+
+
+        private static string ParseHtmlDescription(string html)
         {
-            HtmlDocument doc = new HtmlDocument();
+            if (string.IsNullOrWhiteSpace(html))
+                return string.Empty;
+
+            var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            // Decode HTML entities and combine all text nodes into a single string
-            return string.Join("\n", doc.DocumentNode.SelectNodes("//li")?.Select(li => HttpUtility.HtmlDecode(li.InnerText.Trim()))
-                                 ?? doc.DocumentNode.SelectNodes("//p")?.Select(p => HttpUtility.HtmlDecode(p.InnerText.Trim()))
-                                 ?? new[] { HttpUtility.HtmlDecode(doc.DocumentNode.InnerText.Trim()) });
+            var result = new StringBuilder();
+
+            void ExtractText(HtmlNode node)
+            {
+                foreach (var child in node.ChildNodes)
+                {
+                    if (child.NodeType == HtmlNodeType.Text)
+                    {
+                        result.Append(HtmlEntity.DeEntitize(child.InnerText));
+                    }
+                    else if (child.NodeType == HtmlNodeType.Element)
+                    {
+                        if (child.Name == "br")
+                        {
+                            result.AppendLine();
+                            continue;
+                        }
+
+                        bool isBlock = new[]
+                        {
+                            "p", "div", "li", "ul", "ol",
+                            "h1", "h2", "h3", "h4",
+                            "blockquote"
+                        }.Contains(child.Name);
+
+                        if (isBlock && result.Length > 0 &&
+                            result[result.Length - 1] != '\n')
+                        {
+                            result.AppendLine();
+                        }
+
+                        ExtractText(child);
+
+                        if (isBlock && result.Length > 0 &&
+                            result[result.Length - 1] != '\n')
+                        {
+                            result.AppendLine();
+                        }
+                    }
+                }
+            }
+
+            ExtractText(doc.DocumentNode);
+
+            return result.ToString().Trim();
         }
 
         [HttpPost("export")]

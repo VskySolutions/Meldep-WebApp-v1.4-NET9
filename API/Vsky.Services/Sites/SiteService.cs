@@ -299,7 +299,7 @@ namespace Vsky.Services.Sites
         #region CheckMobileVersion
         public async Task<MobileVersionResponse> CheckMobileVersion(string siteId, string currentVersion)
         {
-            var site = _siteRepository.GetById(siteId);
+            var site = await GetById(siteId);
 
             if (site == null || string.IsNullOrEmpty(site.VersionNo))
             {
