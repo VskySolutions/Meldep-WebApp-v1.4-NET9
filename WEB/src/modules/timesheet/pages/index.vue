@@ -1129,8 +1129,10 @@ function onClearFilters (key) {
     search.value.projectId = null;
   } else if (key === "Project Modules") {
     search.value.projectModuleId = null;
+    search.value.requirementId = null;
   } else if (key === "Requirement") {
     search.value.requirementId = null;
+    search.value.projectTaskId = null;
   } else if (key === "Project Tasks") {
     search.value.projectTaskId = null;
   } else if (key === "Week Filter") {
@@ -1215,11 +1217,22 @@ watch(
   { immediate: true }
 );
 
-watch(() => search.value.projectModuleId, (newValue, oldValue) => {
-  if (!newValue || newValue === oldValue) return;
+// watch(() => search.value.projectModuleId, (newValue, oldValue) => {
+//   if (!newValue || newValue === oldValue) return;
 
-  search.value.projectTaskId = null;
-  projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId);
+//   search.value.requirementId = null;
+//   projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId);
+// }, { immediate: true });
+
+watch(() => search.value.requirementId, (newValue, oldValue) => {
+  // if (!newValue || newValue === oldValue) return;
+
+  // Clear Requirement only when the module actually changes
+  if (oldValue !== undefined && oldValue !== null && newValue !== oldValue) {
+    search.value.projectTaskId = null;
+  }
+
+  projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId, search.value.requirementId);
 }, { immediate: true });
 
 watch(activeRowId, (val) => {

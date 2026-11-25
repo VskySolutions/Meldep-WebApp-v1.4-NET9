@@ -410,16 +410,16 @@ namespace Vsky.Api.Controllers
             }
         }
 
-        [HttpGet("dropdown/multiTaskList/{isTemplate}/{projectId}/{projectModuleId}")]
+        [HttpGet("dropdown/multiTaskList/{isTemplate}/{projectId}/{projectModuleId}/{requirementId}")]
         [SiteMember]
-        public async Task<IActionResult> GetAllProjectMultiTaskListForDropdown(bool isTemplate, string projectId = null, string projectModuleId = null)
+        public async Task<IActionResult> GetAllProjectMultiTaskListForDropdown(bool isTemplate, string projectId = null, string projectModuleId = null, string requirementId = null)
         {
             try
             {
                 var LoggedUserId = User.GetLoggedInUserId<string>();
                 var SiteId = _globalVariable.SiteId;
 
-                var list = await _taskService.GetAllProjectMultiTaskListForDropdown(SiteId, isTemplate, projectId, projectModuleId);
+                var list = await _taskService.GetAllProjectMultiTaskListForDropdown(SiteId, isTemplate, projectId, projectModuleId, requirementId);
                 var model = _mapper.Map<List<CommonDropDown>>(list);
                 return Ok(model);
             }

@@ -97,7 +97,7 @@ namespace Vsky.Services.ProjectTasks
             string projectModuleId = null,
             string employeeId = null
         );
-        Task<List<CommonDropDown>> GetAllProjectMultiTaskListForDropdown(string siteId, bool isTemplate, string projectId = null, string projectModuleId = null);
+        Task<List<CommonDropDown>> GetAllProjectMultiTaskListForDropdown(string siteId, bool isTemplate, string projectId = null, string projectModuleId = null, string requirementId = null);
         Task<List<CommonDropDown>> GetAllProjectTaskWithProjectListForDropdown(string siteId, string LoggedUserId, string employeeId);
         #endregion
 

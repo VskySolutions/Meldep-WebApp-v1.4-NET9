@@ -915,7 +915,7 @@ namespace Vsky.Services.ProjectTasks
             return list;
         }
 
-        public async Task<List<CommonDropDown>> GetAllProjectMultiTaskListForDropdown(string siteId, bool isTemplate, string projectId = null, string projectModuleId = null)
+        public async Task<List<CommonDropDown>> GetAllProjectMultiTaskListForDropdown(string siteId, bool isTemplate, string projectId = null, string projectModuleId = null, string requirementId = null)
         {
             var query = _projectTaskRepository.TableNoTracking.Where(x => x.SiteId == siteId && !x.Deleted && !x.Project.Deleted && !x.ProjectModule.Deleted && x.Project.IsTemplate == isTemplate && !x.Project.IsArchived && !x.IsMoved);
 
@@ -929,6 +929,12 @@ namespace Vsky.Services.ProjectTasks
             {
                 var projectModuleIdArray = projectModuleId.Split(',');
                 query = query.Where(x => projectModuleIdArray.Contains(x.ProjectModuleId) && !x.ProjectModule.Deleted);
+            }
+
+            if (!string.IsNullOrWhiteSpace(requirementId) && requirementId != "undefined")
+            {
+                var requirementIdArray = requirementId.Split(',');
+                query = query.Where(x => requirementIdArray.Contains(x.RequirementId) && !x.Requirement.Deleted);
             }
 
             var list = await query

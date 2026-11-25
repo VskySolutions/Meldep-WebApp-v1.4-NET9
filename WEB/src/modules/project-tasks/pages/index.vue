@@ -1084,9 +1084,9 @@ const getAllProjectTaskList = async ({ pagination: p }) => {
 
   const storedTaskIds = getStoredSelectedTaskIds();
   // dependent dropdown
-  if (search.value.projectIds > 0 && search.value.projectModuleIds > 0) {
-    const { projectIdsFiltered, projectModuleIdsFiltered } = convertProjectIdsAndModuleIds(search.value.projectIds, search.value.projectModuleIds);
-    projectTasksByProjectIdAndModuleIdForDropdown(search.value.isTemplate, projectIdsFiltered, projectModuleIdsFiltered);
+  if (search.value.projectIds > 0 && search.value.projectModuleIds > 0 && search.value.requirementIds > 0) {
+    const { projectIdsFiltered, projectModuleIdsFiltered, requirementIdsFiltered } = convertProjectIdsAndModuleIds(search.value.projectIds, search.value.projectModuleIds, search.value.requirementIds);
+    projectTasksByProjectIdAndModuleIdForDropdown(search.value.isTemplate, projectIdsFiltered, projectModuleIdsFiltered, requirementIdsFiltered);
   }
 
   try {
@@ -1851,12 +1851,14 @@ const { tagsDropdown } = tagModule();
 const { allUsersForDropdown } = userModule();
 const { requirementsByProjectModuleIdForDropdown } = requirementModule();
 
-const convertProjectIdsAndModuleIds = (projectIds, moduleIds) => {
+const convertProjectIdsAndModuleIds = (projectIds, moduleIds, requirementIds) => {
   const projectId = Array.isArray(projectIds) ? projectIds.join(",") : projectIds || null;
   const projectModuleId = Array.isArray(moduleIds) ? moduleIds.join(",") : moduleIds || null;
+  const requirementId = Array.isArray(requirementIds) ? requirementIds.join(",") : requirementIds || null;
   return {
     projectId: projectId || null,
-    projectModuleId: projectModuleId || null
+    projectModuleId: projectModuleId || null,
+    requirementId: requirementId || null
   };
 };
 
@@ -2014,14 +2016,25 @@ watch(() => search.value.projectModuleIds, (newValue, oldValue) => {
   }
   if (search.value?.projectModuleIds?.length === 0 || newValue === oldValue) return;
 
-  search.value.projectTaskIds = [];
-  const { projectId, projectModuleId } = convertProjectIdsAndModuleIds(search.value.projectIds, newValue);
-  projectTasksByProjectIdAndModuleIdForDropdown.load(search.value.isTemplate, projectId, projectModuleId);
+  // search.value.projectTaskIds = [];
+  // const { projectId, projectModuleId } = convertProjectIdsAndModuleIds(search.value.projectIds, newValue);
+  // projectTasksByProjectIdAndModuleIdForDropdown.load(search.value.isTemplate, projectId, projectModuleId);
 
   if (newValue == null) return;
     requirementsByProjectModuleIdForDropdown.load(newValue);
 }, { immediate: true });
 
+watch(() => search.value.requirementIds, (newValue, oldValue) => {
+  if (search.value.requirementIds?.length === 0) {
+    search.value.projectTaskIds = [];
+    return;
+  }
+  if (search.value?.requirementIds?.length === 0 || newValue === oldValue) return;
+
+  search.value.projectTaskIds = [];
+  const { projectId, projectModuleId, requirementId } = convertProjectIdsAndModuleIds(search.value.projectIds, search.value.projectModuleIds, search.value.requirementIds);
+  projectTasksByProjectIdAndModuleIdForDropdown.load(search.value.isTemplate, projectId, projectModuleId, requirementId);
+}, { immediate: true });
 // ----------------------------------------------------------------------------------------------------------------
 // On page load
 // ----------------------------------------------------------------------------------------------------------------
