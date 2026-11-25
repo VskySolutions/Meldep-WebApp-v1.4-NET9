@@ -234,7 +234,6 @@ const rules = {
 const v$ = useVuelidate(rules, model, { $lazy: true, $autoDirty: true });
 
 const getAllNoteByTypeAndRecord = () => {
-  debugger;
   loading.value = true;
   isNotesLoaded.value = false;
   commonService.getAllNoteByTypeAndRecord(props.id, props.type, true).then((resp) => {
