@@ -362,6 +362,7 @@
                   :columns="columns.filter(col => !col.hidden)"
                   flat
                   bordered
+                  separator="cell"
                   class="q-pa-sm"
                   @update:pagination="val => {
                     projectActivityPagination = {
