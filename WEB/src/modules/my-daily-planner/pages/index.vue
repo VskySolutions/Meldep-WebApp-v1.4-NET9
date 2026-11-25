@@ -325,8 +325,8 @@
                     </q-tooltip>
                   </q-icon>
                 </q-td>
-                <q-td v-if="selectedColumnNames.includes('description')">
-                  <div class="RichTextEditor" style="display: block; overflow-wrap: break-word; word-wrap: break-word; white-space: normal;" v-safe-html="line.description" />
+                <q-td v-if="selectedColumnNames.includes('description')" class="RichTextEditor common-q-td">
+                  <div v-safe-html="line.description" />
                 </q-td>
                 <q-td v-if="selectedColumnNames.includes('createdById')" class="text-left" style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal;">
                   {{ props.row.user.person.fullName }}

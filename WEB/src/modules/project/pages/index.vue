@@ -118,12 +118,13 @@
                       <singleSelectDropdown
                         v-model="search.statusId"
                         label="Active/Inactive"
-                        labelTooltip="Determines whether the project is currently available for use across the application. Active projects are displayed and available to users; Inactive projects are hidden from the overall application."
+                        labelTooltip="Indicates whether the project is active or inactive for weekly reporting purposes. Active projects are included in weekly reports, while inactive projects are excluded."
                         :options="projectActiveInActiveDropdown.list.value"
                       />
                       <singleSelectDropdown
                         v-model="search.archiveStatusId"
                         label="Archive/Unarchive"
+                        labelTooltip="Determines whether the project is archived or unarchived. Archived projects are hidden from the application, while unarchived projects remain visible and available for use across the application."
                         :options="projectArchiveUnarchiveDropdown.list.value"
                       />
                       <multiSelectDropdown
@@ -365,8 +366,19 @@
                     :class="['dot-circle q-mr-xs hoverable-cell', props.row.active ? 'dot-active' : 'dot-inactive']"
                     @click="() => { onSubmitProjectActiveInActiveToggle(props.row.id, props.row.active, refreshProjectList) }"
                   >
-                    <q-tooltip v-if="!props.row.active">Set Active?</q-tooltip>
-                    <q-tooltip v-else>Set Inactive?</q-tooltip>
+                    <q-tooltip v-if="!props.row.active">
+                      <div class="text-weight-medium text-center">Set Active?</div>
+                      <div class="text-center">
+                        Activating this project will include it in weekly reports.
+                      </div>
+                    </q-tooltip>
+
+                    <q-tooltip v-else>
+                      <div class="text-weight-medium text-center">Set Inactive?</div>
+                      <div class="text-center">
+                        Inactivating this project will exclude it from weekly reports.
+                      </div>
+                    </q-tooltip>
                   </div>
                   <div
                     v-if="!props.row.isEditable"
@@ -616,9 +628,9 @@
                     @popup-show="handlePopupShow(props.row.projectStatus.dropDownValue)"
                     @cancel="activeEdit = { rowId: null, field: null }"
                     @submit="({ rowId, value }) => {
-  const selectedStatus = projectStatusList.find(x => x.value === value)?.text;
-  onSubmitProjectStatus(rowId, value, selectedStatus, refreshProjectList);
-}"
+                      const selectedStatus = projectStatusList.find(x => x.value === value)?.text;
+                      onSubmitProjectStatus(rowId, value, selectedStatus, refreshProjectList);
+                    }"
                     @history="() => onSiteModifiedLog(props.row.id, props.row.name, 'Project Status')"
                   />
                 </q-td>

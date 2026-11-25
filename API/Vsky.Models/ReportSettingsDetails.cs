@@ -17,6 +17,7 @@ namespace Vsky.Models
         public string ReportName { get; set; }
         public string ReportDescription { get; set; }
         public string Url { get; set; }
+        public bool IsFavourite { get; set; }
         public DateTime CreatedOnUtc { get; set; }
         public string CreatedById { get; set; }
         public DateTime UpdatedOnUtc { get; set; }
@@ -30,6 +31,16 @@ namespace Vsky.Models
         public virtual ApplicationUser CreatedBy { get; set; }
         public virtual ApplicationUser UpdatedBy { get; set; }
         public virtual ICollection<ReportUserMapping> ReportUserMapping { get; set; } = new List<ReportUserMapping>();
+        public virtual ICollection<ReportFavourite> ReportFavourite { get; set; } = new List<ReportFavourite>();
 
+    }
+
+    public class ReportFavourite : BaseEntity
+    {
+        public string ReportSettingsDetailId { get; set; }
+        public string AspNetUserId { get; set; }
+
+        public ReportSettingsDetails ReportSettingsDetails { get; set; }
+        public ApplicationUser User { get; set; }
     }
 }

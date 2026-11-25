@@ -17,6 +17,7 @@ using Vsky.Services.AzureBlobImage;
 using Vsky.Services.Common;
 using Vsky.Services.Logging;
 using Vsky.Services.PowerBI;
+using Vsky.Services.ReportFavourite;
 using Vsky.Services.ReportRoleGroupMappings;
 using Vsky.Services.ReportSetting;
 using Vsky.Services.ReportSettingDetail;
@@ -36,6 +37,7 @@ namespace Vsky.Api.Controllers
         private readonly IReportSettingsService _reportSettingsService;
         private readonly IReportSettingDetailService _reportSettingDetailService;
         private readonly IReportRoleGroupMappingService _reportRoleGroupMappingService;
+        private readonly IReportFavouriteService _reportFavouriteService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ISitesRolesService _sitesRolesService;
         private readonly ICommonService _commonService;
@@ -52,6 +54,7 @@ namespace Vsky.Api.Controllers
             IReportSettingsService reportSettingsService,
             IReportSettingDetailService reportSettingDetailService,
             IReportRoleGroupMappingService reportRoleGroupMappingService,
+            IReportFavouriteService reportFavouriteService,
             UserManager<ApplicationUser> userManager,
             ISitesRolesService sitesRolesService,
             ICommonService commonService,
@@ -68,6 +71,7 @@ namespace Vsky.Api.Controllers
             _reportSettingsService = reportSettingsService;
             _reportSettingDetailService = reportSettingDetailService;
             _reportRoleGroupMappingService = reportRoleGroupMappingService;
+            _reportFavouriteService = reportFavouriteService;
             _sitesRolesService = sitesRolesService;
             _userManager = userManager;
             m_errorMessage = _configValidatorService.GetWebConfigErrors();
@@ -199,6 +203,7 @@ namespace Vsky.Api.Controllers
                                 searchModel.SearchText,
                                 searchModel.ReportIds,
                                 searchModel.ReportGroupId,
+                                searchModel.IsFavourite,
                                 searchModel.SortBy,
                                 searchModel.Descending,
                                 searchModel.Page,
@@ -559,6 +564,43 @@ namespace Vsky.Api.Controllers
                 return BadRequest(SafeErrorMessage(ex));
             }
         }
+
+        #region UpdateFavourite
+        [HttpPut("favourite/{reportSettingsDetailId}/{isFavourite}")]
+        public async Task<bool> UpdateFavourite(string reportSettingsDetailId, bool isFavourite)
+        {
+            var LoggedUserId = User.GetLoggedInUserId<string>();
+            var SiteId = _globalVariable.SiteId;
+            var SiteData = await _siteService.GetById(SiteId);
+            var GetDateTime = _siteService.GetDateTime(SiteData.TimeZone);
+
+            // Fetch the project entity by its ID
+            var entity = await _reportSettingDetailService.GetById(reportSettingsDetailId);
+            if (entity == null)
+                return false;
+
+            var existsReportFavourite = await _reportFavouriteService.GetReportFavouriteByUser(reportSettingsDetailId, LoggedUserId);
+
+            if (isFavourite)
+            {
+                if (existsReportFavourite == null)
+                {
+                    var reportFavourite = new ReportFavourite
+                    {
+                        ReportSettingsDetailId = reportSettingsDetailId,
+                        AspNetUserId = LoggedUserId
+                    };
+                    _reportFavouriteService.InsertReportFavourite(reportFavourite);
+                }
+            }
+            entity.IsFavourite = isFavourite;
+            entity.UpdatedOnUtc = GetDateTime;
+            entity.UpdatedById = LoggedUserId;
+            _reportSettingDetailService.UpdateReportSettingDetails(entity);
+
+            return true;
+        }
+        #endregion
 
     }
 }

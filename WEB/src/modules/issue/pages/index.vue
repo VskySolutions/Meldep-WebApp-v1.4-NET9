@@ -266,17 +266,6 @@
                   auto-width
                   class="text-center"
                 >
-                  <q-btn
-                    v-if="multiSelectIssueIds.length > 0"
-                    flat
-                    dense
-                    no-caps
-                    color="white"
-                    icon="o_restart_alt"
-                    @click.stop="setDefaultsForMultiSelects"
-                  >
-                    <q-tooltip>Unselect all issues</q-tooltip>
-                  </q-btn>
                 </q-th>
                 <!-- <q-th v-for="col in props.cols" :key="col.name" :props="props">{{ col.label }}</q-th> -->
                 <q-th

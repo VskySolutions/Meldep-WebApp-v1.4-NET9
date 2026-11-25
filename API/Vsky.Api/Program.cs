@@ -119,6 +119,7 @@ using Vsky.Services.ReportRoleGroupMappings;
 using Vsky.Services.ReportSetting;
 using Vsky.Services.ReportSettingDetail;
 using Vsky.Services.ReportUserMappings;
+using Vsky.Services.ReportFavourite;
 using Vsky.Services.RequirementDataMappings;
 using Vsky.Services.RequirementStatusTrackings;
 using Vsky.Services.Requirements;
@@ -554,6 +555,7 @@ namespace Vsky.Api
             builder.Services.AddScoped<IIssueStatusChangedLogService, IssueStatusChangedLogService>();
             builder.Services.AddScoped<IIssueActivityService, IssueActivityService>();
             builder.Services.AddScoped<IReportSettingsService, ReportSettingsService>();
+            builder.Services.AddScoped<IReportFavouriteService, ReportFavouriteService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IJobCreateService, JobCreateService>();
             builder.Services.AddScoped<ICandidateService, CandidateService>();

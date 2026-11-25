@@ -360,18 +360,6 @@
               <q-th
                 v-if="!isViewer" auto-width class="text-center"
               >
-                <q-btn
-                  v-if="multiSelectRequirementIds.length > 0"
-                  icon="o_restart_alt"
-                  flat
-                  dense
-                  no-caps
-                  color="white"
-                  size="sm"
-                  @click.stop="clearAllSelectedRequirements"
-                >
-                  <q-tooltip>Unselect All Requirements</q-tooltip>
-                </q-btn>
               </q-th>
               <q-th
                 v-for="col in props.cols"

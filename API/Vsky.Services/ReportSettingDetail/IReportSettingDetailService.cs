@@ -20,6 +20,7 @@ namespace Vsky.Services.ReportSettingDetail
             string SearchText, 
             List<string> reportIds,
             string reportGroupId,
+            bool isFavourite,
             string sortBy, 
             bool descending, 
             int page = 1,

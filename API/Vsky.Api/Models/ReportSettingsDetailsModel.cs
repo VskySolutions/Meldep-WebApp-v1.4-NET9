@@ -15,6 +15,7 @@ namespace Vsky.Api.Models
         public string ReportName { get; set; }
         public string ReportDescription { get; set; }
         public string Url { get; set; }
+        public bool IsFavourite { get; set; }
         public DateTime CreatedOnUtc { get; set; }
         public string CreatedById { get; set; }
         public DateTime UpdatedOnUtc { get; set; }
@@ -34,6 +35,7 @@ namespace Vsky.Api.Models
         public string ReportGroupId { get; set; }
         public List<string> ReportIds { get; set; }
         public string SearchText { get; set; }
+        public bool IsFavourite { get; set; }
     }
 
     public record ReportSettingsDetailsListModel : BasePagedListModel<ReportSettingsDetailsModel>

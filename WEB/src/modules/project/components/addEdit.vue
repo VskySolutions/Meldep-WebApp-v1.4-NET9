@@ -183,49 +183,37 @@
                         :error-message="v$.planApproverId.$errors[0]?.$message"
                       />
                       <div class="col-12 col-sm-2 col-md-2 col-lg-2">
-                        <!-- <div class="q-mb-xs q-mt-md text-black">Active/Inactive Flag
-                          <q-icon
-                            name="o_info"
-                            size="16px"
-                            class="q-ml-xs cursor-pointer text-grey-7"
-                          >
-                            <q-tooltip
-                              anchor="top middle"
-                              self="bottom middle"
-                              :offset="[0, 6]"
+                        <div>
+                          <div class="q-mb-xs q-mt-md text-black">
+                            Archive/Unarchive
+                            <q-icon
+                              name="o_info"
+                              size="16px"
+                              color="grey-7"
+                              class="q-ml-xs cursor-pointer"
                             >
-                              <div style="max-width: 320px; white-space: normal;">
-                                Determines whether the project is currently available for use across the application. Active projects are displayed and available to users; Inactive projects are hidden from the overall application.
-                              </div>
-                            </q-tooltip>
-                          </q-icon>
-                        </div>
-                        <q-checkbox
-                          v-model="model.active"
-                          label="Active"
-                          :dense="true"
-                        />-->
-                       <div>
-                        <div class="q-mb-xs q-mt-md text-black">
-                          Archive/Unarchive
-                        </div>
+                              <q-tooltip>
+                                Determines whether the project is archived or unarchived. Archived projects are hidden from the application, while unarchived projects remain visible and available for use across the application.
+                              </q-tooltip>
+                            </q-icon>
+                          </div>
 
-                        <div class="row items-center no-wrap q-gutter-sm">
-                          <q-radio
-                            v-model="model.isArchived"
-                            :val="true"
-                            label="Archive"
-                            dense
-                          />
+                          <div class="row items-center no-wrap q-gutter-sm">
+                            <q-radio
+                              v-model="model.isArchived"
+                              :val="true"
+                              label="Archive"
+                              dense
+                            />
 
-                          <q-radio
-                            v-model="model.isArchived"
-                            :val="false"
-                            label="Unarchive"
-                            dense
-                          />
+                            <q-radio
+                              v-model="model.isArchived"
+                              :val="false"
+                              label="Unarchive"
+                              dense
+                            />
+                          </div>
                         </div>
-                      </div>
                       </div>
                     </div>
                     <div class="row q-col-gutter-x-md q-mb-lg">

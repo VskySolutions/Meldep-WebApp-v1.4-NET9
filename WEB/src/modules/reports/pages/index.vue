@@ -170,6 +170,19 @@
                           </q-select>
                         </div>
                       </div>
+                      <div class="row items-center q-mb-sm">
+                        <div class="col-lg-5 col-md-5 col-sm-12 col-xs-12">
+                          <label class="Cutomlabel q-mt-sm fs-13">Show Favourite</label>
+                        </div>
+                        <div class="col-lg-7 col-md-7 col-sm-12 col-xs-12">
+                          <q-checkbox
+                          v-model="isFavourite"
+                          color="indigo-12"
+                          class="q-mr-md"
+                          @update:model-value="getReports({ pagination: pagination })"
+                        />
+                        </div>
+                      </div>
                       <!-- Search and Clear Buttons -->
                       <div class="row justify-end q-gutter-sm q-mb-sm">
                         <q-btn style="width: 20%;" outline color="primary" label="Search" class="btnRounded" no-caps @click="() => { showFilter = false; onSearch(); }" />
@@ -312,6 +325,17 @@
                 >
                   <q-tooltip>Edit</q-tooltip>
                 </q-icon> -->
+                <q-icon
+                  :name="props.row.isFavourite ? 'o_star' : 'o_star'"
+                  :color="props.row.isFavourite ? 'amber' : 'grey'"
+                  class="cursor-pointer q-mr-sm"
+                  size="xs"
+                  @click="onSubmitReportFavourite(props.row.id, !props.row.isFavourite)"
+                >
+                  <q-tooltip>
+                    {{ props.row.isFavourite ? 'Remove Favourite' : 'Add Favourite' }}
+                  </q-tooltip>
+                </q-icon>
                 <q-icon v-can
                   v-if="role === 'admin'"
                   name="o_edit"
@@ -378,14 +402,15 @@ const localStorageKey = "Reports";
 const filterLocalStorage = getLocalStorage(localStorageKey);
 const searchText = ref(filterLocalStorage?.searchText || "");
 const reportIds = filterLocalStorage ? filterLocalStorage.reportIds : [];
-const reportGroupId = filterLocalStorage ? filterLocalStorage.reportGroupId : "";
+const reportGroupId = filterLocalStorage ? filterLocalStorage.reportGroupId : null;
 const pagination = ref(filterLocalStorage?.pagination || { sortBy: "createdOnUtc", descending: true, rowsPerPage: 20, page: 1 });
 
 // Search variables
 const search = ref({
   searchText,
   reportGroupId,
-  reportIds
+  reportIds,
+  isFavourite: false
 });
 
 // Table variables
@@ -398,6 +423,13 @@ const columns = ref([
   // { name: "url", label: "Link", field: "url", align: "left", sortable: true },
   { name: "reportDescription", label: "Report Description", field: "reportDescription", align: "left", sortable: true }
 ]);
+
+const isFavourite = computed({
+  get: () => search.value.isFavourite,
+  set: (value) => {
+    search.value.isFavourite = value;
+  }
+});
 
 // Get/Map report list to table
 const getReports = (props) => {
@@ -421,7 +453,6 @@ const getReports = (props) => {
         hasReportGroupAccess
       };
     });
-
     pagination.value.page = page;
     pagination.value.rowsPerPage = rowsPerPage;
     pagination.value.sortBy = sortBy;
@@ -555,6 +586,18 @@ const onDeleteReport = (item) => {
   });
 };
 
+const onSubmitReportFavourite = async (id, status) => {
+  try {
+    activeRowId.value = id;
+    await reportService.updateReportFavourite(id, status);
+    notifySuccess({ message: `Report is ${status ? "added to" : "removed from"} favourites.` });
+    getReports({ pagination: pagination.value });
+  } catch (error) {
+    sendError("Error updating report favourite status", error);
+  } finally {
+    activeRowId.value = null;
+  }
+};
 // ----------------------------
 // Applied Filter Labels.
 // ----------------------------
@@ -612,7 +655,7 @@ watch(() => searchText.value, () => {
 onMounted(() => {
   tableRef.value.requestServerInteraction();
   getAllReportGroupListForDropDown("Report Group");
-  getAllReportListForDropdown();  
+  getAllReportListForDropdown();
   getAllReportTypeForDropDown("Report Type");
 });
 

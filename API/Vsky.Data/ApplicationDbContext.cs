@@ -240,6 +240,7 @@ namespace Vsky.Data
         public virtual DbSet<ReportSettingsDetails> ReportSettingsDetails { get; set; }
         public virtual DbSet<ReportUserMapping> ReportUserMapping { get; set; }
         public virtual DbSet<ReportRoleGroupMapping> ReportRoleGroupMapping { get; set; }
+        public virtual DbSet<ReportFavourite> ReportFavourite { get; set; }
 
         //Candidiate
         public virtual DbSet<Candidate> Candidate { get; set; }
@@ -2558,6 +2559,17 @@ namespace Vsky.Data
                 entity.HasOne(d => d.Site).WithMany().HasForeignKey(d => d.SiteId);
                 entity.HasOne(d => d.SitesRoles).WithMany().HasForeignKey(d => d.SiteRoleId);
                 entity.HasOne(d => d.ReportGroup).WithMany().HasForeignKey(d => d.ReportGroupId);
+            });
+
+            builder.Entity<ReportFavourite>(entity =>
+            {
+                entity.ToTable("Report_Favourite");
+
+                entity.Property(e => e.ReportSettingsDetailId).IsRequired().HasMaxLength(450);
+                entity.Property(e => e.AspNetUserId).HasMaxLength(256);
+
+                entity.HasOne(d => d.ReportSettingsDetails).WithMany(p => p.ReportFavourite).HasForeignKey(d => d.ReportSettingsDetailId);
+                entity.HasOne(d => d.User).WithMany().HasForeignKey(d => d.AspNetUserId);
             });
 
             #endregion

@@ -54,6 +54,7 @@ namespace Vsky.Services.ReportSettingDetail
             string SearchText,
             List<string> reportIds,
             string reportGroupId,
+            bool isFavourite,
             string sortBy,
             bool descending,
             int page = 1,
@@ -75,6 +76,9 @@ namespace Vsky.Services.ReportSettingDetail
 
             if (reportIds != null && reportIds.Any())
                 query = query.Where(x => reportIds.Contains(x.Id));
+
+            if (isFavourite)
+               query = query.Where(x => x.IsFavourite && x.ReportFavourite.Any(f => f.AspNetUserId == userId));
 
             if (!string.IsNullOrWhiteSpace(sortBy))
             {
@@ -108,6 +112,7 @@ namespace Vsky.Services.ReportSettingDetail
                ReportName = x.ReportName,
                ReportDescription = x.ReportDescription,
                Url = x.Url,
+               IsFavourite = x.IsFavourite && x.ReportFavourite.Any(p => p.AspNetUserId == userId),
                ReportGroup = new DropDown { Id = x.ReportGroup.Id, DropDownValue = x.ReportGroup.DropDownValue },
                ReportSetting = new ReportSettings
                {
