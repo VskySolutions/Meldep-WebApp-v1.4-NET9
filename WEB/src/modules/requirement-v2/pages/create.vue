@@ -24,7 +24,7 @@
     <q-form greedy @submit.prevent.stop="onSubmit()">
       <requirement-form-fields ref="fieldsRef" v-model="model" is-new show-log>
         <template #aside>
-          <app-section-card title="Document references" icon="o_link" info="Links to the documents that describe the requirement — a specification, a mock-up, a signed form — each with a name and a note." dense class="q-mb-md">
+          <app-section-card ref="docsCardRef" title="Document references" icon="o_link" :count="documentRefs.length || null" collapsible default-collapsed info="Links to the documents that describe the requirement — a specification, a mock-up, a signed form — each with a name and a note." dense class="q-mb-md">
             <requirement-document-refs ref="docsRef" v-model="documentRefs" hide-title />
           </app-section-card>
         </template>
@@ -113,6 +113,7 @@ const model = ref(blankModel());
 const documentRefs = ref([]);
 const fieldsRef = ref(null);
 const docsRef = ref(null);
+const docsCardRef = ref(null);
 const processing = ref(false);
 const another = ref(false);
 const savedCount = ref(0);
@@ -154,6 +155,8 @@ const onSubmit = async (addAnother = false) => {
 
   const fieldsOk = await fieldsRef.value?.validate();
   const docsOk = docsRef.value?.validate() ?? true;
+  // A reference row with a problem is shown, not left behind a closed section.
+  if (!docsOk) docsCardRef.value?.expand();
   if (!fieldsOk || !docsOk) {
     notify.error("Please fix the highlighted fields.");
     return;

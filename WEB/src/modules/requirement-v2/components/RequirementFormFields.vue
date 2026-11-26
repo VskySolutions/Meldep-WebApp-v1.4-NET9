@@ -10,7 +10,7 @@
 
     <!-- Main column: what the requirement is. -->
     <div class="col-12 col-lg-8">
-      <app-section-card title="About" icon="o_assignment" dense class="q-mb-md">
+      <app-section-card ref="aboutCard" title="About" icon="o_assignment" collapsible dense class="q-mb-md">
         <div class="row q-col-gutter-sm">
           <app-text-field
             v-model="model.title"
@@ -90,7 +90,7 @@
         </div>
       </app-section-card>
 
-      <app-section-card title="Initial scope" icon="o_center_focus_weak" info="The specific areas, processes, systems or activities the requirement covers." dense class="q-mb-md">
+      <app-section-card title="Initial scope" icon="o_center_focus_weak" collapsible info="The specific areas, processes, systems or activities the requirement covers." dense class="q-mb-md">
         <app-rich-text-field
           v-model="model.scope"
           placeholder="Describe what is in scope…"
@@ -98,7 +98,7 @@
         />
       </app-section-card>
 
-      <app-section-card v-if="showLog" title="Requirement Log" icon="o_history_edu" info="Detailed information about the requirement. This first entry becomes the requirement's description; later entries are added from the requirement's Requirement Log tab." dense class="q-mb-md">
+      <app-section-card v-if="showLog" ref="logCard" title="Requirement Log" icon="o_history_edu" collapsible info="Detailed information about the requirement. This first entry becomes the requirement's description; later entries are added from the requirement's Requirement Log tab." dense class="q-mb-md">
         <app-rich-text-field
           v-model="model.description"
           label="First entry"
@@ -116,7 +116,7 @@
 
     <!-- Side column: where it stands, who is on it, when it runs. -->
     <div class="col-12 col-lg-4">
-      <app-section-card title="Workflow" icon="o_flag" dense class="q-mb-md">
+      <app-section-card ref="workflowCard" title="Workflow" icon="o_flag" collapsible dense class="q-mb-md">
         <div class="row q-col-gutter-sm">
           <!-- On an existing requirement the status and the priority are saved the moment they are picked,
                through the same logged actions the list uses (the status with its optional note), so their
@@ -172,7 +172,7 @@
         </div>
       </app-section-card>
 
-      <app-section-card title="People" icon="o_groups" dense class="q-mb-md">
+      <app-section-card ref="peopleCard" title="People" icon="o_groups" collapsible default-collapsed dense class="q-mb-md">
         <div class="row q-col-gutter-sm">
           <app-select
             v-model="model.requirementOwnerId"
@@ -239,7 +239,7 @@
         </div>
       </app-section-card>
 
-      <app-section-card title="Timeline" icon="o_event" dense class="q-mb-md">
+      <app-section-card ref="timelineCard" title="Timeline" icon="o_event" collapsible default-collapsed dense class="q-mb-md">
         <div class="row q-col-gutter-sm">
           <app-date-field
             v-model="model.identifiedDateStr"
@@ -297,13 +297,13 @@
 <script setup>
 // The requirement field set, defined once and shared by the create and edit pages, laid out in the same
 // sections the record's Overview uses: About and Initial scope in the main column; Workflow, People and
-// Timeline down the side. It owns its lookups, the project → module / customer cascade, the
+// Timeline down the side. Each section is an accordion; People and Timeline start closed. It owns its lookups, the project → module / customer cascade, the
 // create-time defaults and the validation rules; the host calls validate() before saving.
 //
 // On an existing requirement the status, the priority and the four planned / actual dates are not part
 // of the form's save: each is changed through its own logged action (the host listens for
 // status-change / priority-change / date-change and saves), exactly as the current list does.
-import { computed, reactive, watch, onMounted } from "vue";
+import { computed, reactive, ref, watch, onMounted } from "vue";
 import useVuelidate from "@vuelidate/core";
 import { required, requiredIf, helpers, maxLength } from "@vuelidate/validators";
 import { isDate } from "validators/zw_validators.js";
@@ -456,6 +456,31 @@ const v$ = useVuelidate(rules, model, { $lazy: true, $autoDirty: true });
 
 const err = (field) => field?.$errors?.[0]?.$message || "";
 
+// ---- Sections ----
+// Every section is an accordion; People and Timeline start closed. A section holding a field that has
+// just failed validation opens itself, so a message is never hidden behind a closed head.
+const aboutCard = ref(null);
+const logCard = ref(null);
+const workflowCard = ref(null);
+const peopleCard = ref(null);
+const timelineCard = ref(null);
+
+const SECTION_FIELDS = [
+  [aboutCard, ["title", "projectId", "projectModuleId", "sourceLabel", "targetLabel"]],
+  [logCard, ["description"]],
+  [workflowCard, ["statusId"]],
+  [peopleCard, ["requirementOwnerId", "customerOwnerId"]],
+  [timelineCard, ["identifiedDateStr", "closeDateStr"]]
+];
+
+const openFailedSections = () => {
+  SECTION_FIELDS.forEach(([card, keys]) => {
+    if (keys.some((key) => v$.value[key]?.$error)) card.value?.expand();
+  });
+};
+
+watch(() => v$.value.$errors.length, openFailedSections);
+
 // ---- Load ----
 onMounted(async () => {
   loading.projects = true;
@@ -498,10 +523,18 @@ const validateKeys = (keys) => {
     field.$touch();
     if (field.$invalid) ok = false;
   }
+  if (!ok) openFailedSections();
   return ok;
 };
 
-defineExpose({ validate: () => v$.value.$validate(), validateKeys });
+// A failed check opens the sections it failed in, even one the reader closed again after the last try.
+const validate = async () => {
+  const ok = await v$.value.$validate();
+  if (!ok) openFailedSections();
+  return ok;
+};
+
+defineExpose({ validate, validateKeys });
 </script>
 
 <style scoped>

@@ -38,7 +38,7 @@
           @date-log="showDateLog"
         >
           <template #aside>
-            <app-section-card ref="docsCardRef" title="Document references" icon="o_link" :count="liveDocs || null" info="Links to the documents that describe the requirement — a specification, a mock-up, a signed form — each with a name and a note. A new row saves once it has a path and a name." dense class="q-mb-md">
+            <app-section-card ref="docsCardRef" title="Document references" icon="o_link" :count="liveDocs || null" collapsible default-collapsed info="Links to the documents that describe the requirement — a specification, a mock-up, a signed form — each with a name and a note. A new row saves once it has a path and a name." dense class="q-mb-md">
               <requirement-document-refs ref="docsRef" v-model="documentRefs" hide-title />
             </app-section-card>
           </template>
@@ -180,6 +180,8 @@ const autosave = useAutoSave({
 
     const fieldsOk = fieldsRef.value?.validateKeys?.(changedKeys()) ?? true;
     const docsOk = docsRef.value?.validate({ ignoreBlankNew: true }) ?? true;
+    // A reference row with a problem is shown, not left behind a closed section.
+    if (!docsOk) docsCardRef.value?.expand();
     if (!fieldsOk || !docsOk) return "Fix the highlighted fields to save";
 
     // A row just added and still empty is not sent; the rest go with their flags. A failure is reported
@@ -309,6 +311,7 @@ onMounted(async () => {
   // ?section=documents (from the record's Documents tab) lands on the references.
   if (route.query.section === "documents") {
     await nextTick();
+    docsCardRef.value?.expand();
     docsCardRef.value?.$el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 });
