@@ -34,7 +34,7 @@ import AppEmptyState from "components/common/AppEmptyState.vue";
 import RequirementRecord from "modules/requirement-v2/components/RequirementRecord.vue";
 
 const PAGE_NOTE =
-  "The requirement's own page: what it is, its Description Log and notes, everything linked to it (tasks, issues, " +
+  "The requirement's own page: what it is, its Requirement Log and notes, everything linked to it (tasks, issues, " +
   "test cases, Q&A, action items and time, in the Related tab as a summary or as working views), " +
   "its documents, data mappings and history.";
 

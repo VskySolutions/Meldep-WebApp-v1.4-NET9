@@ -37,7 +37,7 @@
           />
           <app-select
             v-model="model.projectId"
-            class="col-12 col-sm-6 col-md-4"
+            class="col-12 col-sm-6"
             label="Project"
             required
             option-label="text"
@@ -49,7 +49,7 @@
           />
           <app-select
             v-model="model.projectModuleId"
-            class="col-12 col-sm-6 col-md-4"
+            class="col-12 col-sm-6"
             label="Project Module"
             required
             option-label="text"
@@ -60,16 +60,6 @@
             :error="v$.projectModuleId.$error"
             :error-message="err(v$.projectModuleId)"
             @blur="v$.projectModuleId.$touch"
-          />
-          <app-select
-            v-model="model.requirementGroupId"
-            class="col-12 col-sm-6 col-md-4"
-            label="Requirement Group"
-            option-label="text"
-            info="Groups of the selected project, from Requirement Groups."
-            :options="groups.list.value"
-            :loading="loading.groups"
-            :disable="!model.projectId"
           />
           <app-select v-model="model.requirementTypeId" class="col-12 col-sm-6 col-md-4" label="Type" option-label="text" :options="types.list.value" />
           <app-select v-model="model.areaId" class="col-12 col-sm-6 col-md-4" label="Area" option-label="text" :options="areas.list.value" />
@@ -108,7 +98,7 @@
         />
       </app-section-card>
 
-      <app-section-card v-if="showLog" title="Description Log" icon="o_history_edu" info="Detailed information about the requirement. This first entry becomes the requirement's description; later entries are added from the requirement's Log tab." dense class="q-mb-md">
+      <app-section-card v-if="showLog" title="Requirement Log" icon="o_history_edu" info="Detailed information about the requirement. This first entry becomes the requirement's description; later entries are added from the requirement's Requirement Log tab." dense class="q-mb-md">
         <app-rich-text-field
           v-model="model.description"
           label="First entry"
@@ -307,7 +297,7 @@
 <script setup>
 // The requirement field set, defined once and shared by the create and edit pages, laid out in the same
 // sections the record's Overview uses: About and Initial scope in the main column; Workflow, People and
-// Timeline down the side. It owns its lookups, the project → module / group / customer cascade, the
+// Timeline down the side. It owns its lookups, the project → module / customer cascade, the
 // create-time defaults and the validation rules; the host calls validate() before saving.
 //
 // On an existing requirement the status, the priority and the four planned / actual dates are not part
@@ -327,8 +317,6 @@ import AppOptionBadge from "components/common/AppOptionBadge.vue";
 import { hasRichTextContent } from "src/utils/richText";
 import { labelFor, toBadgeOption } from "modules/requirement-v2/utils/options";
 import { LOGGED_DATES, notBefore } from "modules/requirement-v2/utils/changeNote";
-import { useSingleSelectDropdown } from "composables/form-inputs/useDropdown.js";
-import requirementGroupsService from "modules/requirement-group/requirementGroup.service";
 
 import projectModule from "src/modules/project/utils/dropdowns.js";
 import projectModuleOfProjectModule from "src/modules/project-modules/utils/dropdowns.js";
@@ -378,9 +366,8 @@ const {
   requirementApprovalStatusDropdownSingleSelect: approvalStatuses,
   requirementTypeDropdownSingleSelect: types
 } = requirementModule();
-const groups = useSingleSelectDropdown(requirementGroupsService.getAllRequirementGroupListForDropdown, { labelKey: "text", valueKey: "value" });
 
-const loading = reactive({ projects: false, modules: false, groups: false, customers: false, employees: false });
+const loading = reactive({ projects: false, modules: false, customers: false, employees: false });
 
 // Silent on purpose: a list that cannot load leaves an empty picker, and the interceptor has already
 // reported the failure.
@@ -400,12 +387,15 @@ watch(typeText, (next, previous) => {
   }
 });
 
-// ---- Project cascade: the module list, the groups and the customer contacts belong to the chosen project ----
-const syncProject = async (projectId) => {
+// ---- Project cascade: the module list and the customer contacts belong to the chosen project ----
+// The Requirement Group field is not in use and is not shown; a group saved on an older requirement is
+// kept until its project changes.
+// `fillCustomerOwner`: the project was just picked in the form, so an empty Customer Owner takes the
+// project's own contact (or the customer's only contact). Seeding a saved record never fills it.
+const syncProject = async (projectId, { fillCustomerOwner = false } = {}) => {
   const id = Array.isArray(projectId) ? projectId[0] : projectId;
   if (!id) {
     modules.list.value = [];
-    groups.list.value = [];
     customers.list.value = [];
     return;
   }
@@ -413,13 +403,17 @@ const syncProject = async (projectId) => {
   if (selected) model.value.projectStatus = selected.data;
 
   loading.modules = true;
-  loading.groups = true;
   loading.customers = true;
-  await Promise.allSettled([
+  const [, contacts] = await Promise.allSettled([
     quietly(modules.load(false, false, id)).finally(() => { loading.modules = false; }),
-    quietly(groups.load(id)).finally(() => { loading.groups = false; }),
     quietly(customers.load(id)).finally(() => { loading.customers = false; })
   ]);
+
+  // The answer may arrive after the project was changed again; only the current project's contact counts.
+  if (!fillCustomerOwner || model.value.projectId !== projectId || model.value.customerOwnerId) return;
+  const list = Array.isArray(contacts.value) ? contacts.value : [];
+  const owner = list.find((c) => c.data === true) || (list.length === 1 ? list[0] : null);
+  if (owner?.value) model.value.customerOwnerId = owner.value;
 };
 
 watch(() => model.value.projectId, (next, previous) => {
@@ -430,7 +424,7 @@ watch(() => model.value.projectId, (next, previous) => {
     model.value.identifiedCustomerId = null;
     model.value.customerOwnerId = null;
   }
-  syncProject(next);
+  syncProject(next, { fillCustomerOwner: props.isNew || Boolean(previous) });
 });
 
 // ---- Validation ----
@@ -454,7 +448,7 @@ const rules = computed(() => ({
   targetLabel: { required: helpers.withMessage("Target label is required", requiredIf(() => isDataIntegration.value)) },
   closeDateStr: { isDate: dateRule },
   ...(props.showLog
-    ? { description: { required: helpers.withMessage("The first Description Log entry is required", (value) => hasRichTextContent(value)) } }
+    ? { description: { required: helpers.withMessage("The first Requirement Log entry is required", (value) => hasRichTextContent(value)) } }
     : {})
 }));
 
@@ -488,8 +482,8 @@ onMounted(async () => {
   }
 
   // A preset project (from the list's filter, or the record being edited) needs its dependents loaded
-  // without the watcher's clearing.
-  syncProject(model.value.projectId);
+  // without the watcher's clearing. On a new requirement the preset project brings its customer owner too.
+  syncProject(model.value.projectId, { fillCustomerOwner: props.isNew });
 });
 
 // Only the named fields are checked (and marked), so an auto-saving edit of one field is not held up by

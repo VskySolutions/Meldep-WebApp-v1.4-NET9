@@ -19,6 +19,7 @@ namespace Vsky.Api.Models
         public string Flag { get; set; }
 
         public int CompanyContactNotesCount { get; set; }
+        public bool IsProjectContact { get; set; }
         public virtual CompanyModel Company { get; set; }
         //public virtual Site Site { get; set; }
         public virtual PersonModel Person { get; set; }

@@ -23,6 +23,9 @@ namespace Vsky.Models
 
         [NotMapped]
         public int CompanyContactNotesCount { get; set; }
+        // Set only by the project's customer-contact dropdown: this contact is the project's own contact.
+        [NotMapped]
+        public bool IsProjectContact { get; set; }
         public virtual Company Company { get; set; }
         //public virtual Site Site { get; set; }
         public virtual Person Person { get; set; }

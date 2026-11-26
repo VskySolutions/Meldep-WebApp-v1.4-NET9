@@ -148,7 +148,9 @@ export default function projectModule () {
 
   const customerContactByProjectIdDropdownSingleSelect = useSingleSelectDropdown(projectService.getAllCustomerContactListByProjectIdForDropdown, {
     labelKey: "person.fullName",
-    valueKey: "person.id"
+    valueKey: "person.id",
+    // true on the contact the project itself names (Project → Customer Contact).
+    dataKey: "isProjectContact"
   });
 
   return {

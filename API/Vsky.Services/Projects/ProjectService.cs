@@ -618,6 +618,8 @@ namespace Vsky.Services.Projects
                     !cc.Person.Deleted)
                 .Select(cc => new CompanyContacts
                 {
+                    // The contact the project itself names, so a form can preselect it.
+                    IsProjectContact = cc.Id == x.CompanyContactId,
                     Person = new Person
                     {
                         Id = cc.Person.Id,

@@ -42,9 +42,9 @@
         </div>
       </app-section-card>
 
-      <app-section-card title="Latest Description Log entry" icon="o_history_edu" :count="logCount || null" class="q-mb-md">
+      <app-section-card title="Latest Requirement Log entry" icon="o_history_edu" :count="logCount || null" class="q-mb-md">
         <template #actions>
-          <q-btn flat dense no-caps color="primary" icon="o_open_in_new" label="Open Description Log" @click="$emit('go', 'log')" />
+          <q-btn flat dense no-caps color="primary" icon="o_open_in_new" label="Open Requirement Log" @click="$emit('go', 'log')" />
         </template>
         <div v-if="latestLog" class="rot__entry">
           <div class="rot__meta">

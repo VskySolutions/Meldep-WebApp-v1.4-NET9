@@ -97,7 +97,6 @@
       @request="onRequest"
       @refresh="load"
       @update:selected="onSelectedChange"
-      @row-click="onRowClick"
     >
       <template #actions>
         <q-btn flat round dense color="grey-8" icon="o_sort" aria-label="Multi-column sort" @click="showSortDialog = true">
@@ -333,11 +332,20 @@
             <q-tooltip>Edit</q-tooltip>
           </q-btn>
           <q-btn v-if="cell.row.isEditable && !isViewer" flat dense icon="o_history_edu" class="req-act" @click.stop="goToRecordPage(cell.row, 'log')">
-            <q-tooltip>Description Log</q-tooltip>
+            <q-tooltip>Requirement Log</q-tooltip>
           </q-btn>
           <q-btn v-if="cell.row.isEditable || cell.row.isNotes" flat dense icon="o_sticky_note_2" class="req-act" @click.stop="openNotes(cell.row)">
             <q-badge v-if="cell.row.requirementNotesCount > 0" floating color="positive" :label="cell.row.requirementNotesCount" />
             <q-tooltip>Notes</q-tooltip>
+          </q-btn>
+          <!-- This one requirement as an .xlsx workbook, whatever is selected or filtered. -->
+          <q-btn
+            flat dense icon="o_file_download" class="req-act" aria-label="Export Requirement"
+            :loading="requirementExport.isExporting(cell.row.id)"
+            :disable="requirementExport.isExporting(cell.row.id)"
+            @click.stop="requirementExport.exportRow(cell.row)"
+          >
+            <q-tooltip>Export Requirement</q-tooltip>
           </q-btn>
           <q-btn flat dense color="primary" icon="o_more_vert" class="req-act" aria-label="More actions" @click.stop>
             <q-tooltip>More</q-tooltip>
@@ -421,7 +429,7 @@
       v-model="showSortDialog"
       :columns="sortDialogColumns"
       :multi-sort="multiSort"
-      :exclude-columns="['Tasks', 'Tags', 'Latest Note']"
+      :exclude-columns="['Tasks', 'Tags', 'Notes']"
       @add="addSortLevel"
       @remove="removeSortLevel"
       @apply="applyMultiSort"
@@ -434,7 +442,7 @@
 // the signed-in user may see, under one top card whose status tiles and counts fold away (as on the
 // Analytics registers); quick status / priority / date edits on the row, persisted multi-select for
 // bulk actions and CSV export. Records, creation and editing are pages of their own.
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, reactive, computed, watch, onMounted } from "vue";
 import { useQuasar, debounce } from "quasar";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "stores/auth";
@@ -467,6 +475,9 @@ import { useRequirementSelection } from "modules/requirement-v2/useRequirementSe
 import { toBadgeOptions, dropDownBadge, personName } from "modules/requirement-v2/utils/options";
 import { askChangeNote, LOGGED_DATES } from "modules/requirement-v2/utils/changeNote";
 import { stripHtml } from "src/utils/richText";
+import legacyRequirementService from "modules/requirement/requirement.service";
+import { createRequirementExportAction } from "modules/requirement/utils/requirementExport.js";
+import { downloadBlob } from "src/composables/excelImport/downloadBlob.js";
 
 import { initProjectDialogs, onProjectView } from "src/modules/project/utils/dialogs.js";
 import { initSiteDialogs, onSiteModifiedLog } from "src/modules/sites/utils/dialogs.js";
@@ -589,7 +600,7 @@ const columns = [
   { name: "shortDescription", label: "Short Description", field: (r) => r.shortDescriptionText, align: "left", sortable: true, default: false, width: 240 },
   { name: "projectTaskRelatedMappings", label: "Tasks", field: (r) => (r.projectTaskRelatedMappings || []).map((t) => `#${t.projectTaskNumber}`).join(", "), align: "left", sortable: false, default: false, width: 150 },
   { name: "requirementTags", label: "Tags", field: (r) => (r.requirementTags || []).map((t) => t.text).join(", "), align: "left", sortable: false, default: false, width: 220 },
-  { name: "lastNote", label: "Latest Note", field: (r) => r.lastNoteText, align: "left", sortable: false, default: true, width: 240 },
+  { name: "lastNote", label: "Notes", field: (r) => r.lastNoteText, align: "left", sortable: false, default: true, width: 240 },
   { name: "approvalStatusDropDown.dropDownValue", label: "Approval", field: text((r) => r.approvalStatusDropDown?.dropDownValue), align: "left", sortable: true, default: false, width: 140 },
   { name: "requirementType.dropDownValue", label: "Type", field: text((r) => r.requirementType?.dropDownValue), align: "left", sortable: true, default: false },
   // The labels a Data Integration requirement gives the two sides of its data mapping.
@@ -822,18 +833,12 @@ const goToRecordPage = (row, tab) => {
   router.push({ name: "requirement-v2-detail", params: { id: row.id }, query: tab ? { tab } : {} });
 };
 
-const openRecord = (row) => goToRecordPage(row);
-
 const goToEdit = (row) => {
   setActiveRow(row.id);
   router.push({ name: "requirement-v2-edit", params: { id: row.id } });
 };
 
-// A click on the row opens the record unless it landed on a control of its own.
-const onRowClick = (event, row) => {
-  if (event?.target?.closest?.("a, button, .q-btn, .q-checkbox, .q-chip, .q-badge, [role=button], .q-menu, input")) return;
-  openRecord(row);
-};
+// A requirement opens from its number or title link and from View; a click on the rest of the row does nothing.
 
 const copyLink = (row) => {
   const href = router.resolve({ name: "requirement-v2-detail", params: { id: row.id } }).href;
@@ -1018,6 +1023,15 @@ const bulkDelete = async () => {
 };
 
 // ---- Export ----
+// One requirement as a workbook, from its row: the same endpoint and download checks as the old list.
+const requirementExport = createRequirementExportAction({
+  exportRequirement: (id) => legacyRequirementService.exportRequirement(id),
+  download: downloadBlob,
+  notifyError: notify.error,
+  notifySuccess: notify.success,
+  pending: reactive({})
+});
+
 const exporting = ref(false);
 
 const exportColumns = columns.filter((c) => c.name !== "actions").map((c) => ({

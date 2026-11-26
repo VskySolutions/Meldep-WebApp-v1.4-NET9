@@ -10,8 +10,8 @@
       <app-empty-state
         v-else-if="!entries.length"
         icon="o_history_edu"
-        title="No Description Log yet"
-        :text="readonly ? '' : 'Describe the requirement below to start the Description Log.'"
+        title="No Requirement Log yet"
+        :text="readonly ? '' : 'Describe the requirement below to start the Requirement Log.'"
       />
 
       <template v-else>
@@ -85,7 +85,7 @@
       <div class="rtl__compose-box rtl__compose-box--closed">
         <button type="button" :class="['rtl__open-btn', { 'rtl__open-btn--draft': hasRichTextContent(draft) }]" @click="openComposer">
           <q-icon name="o_edit_note" size="20px" color="primary" />
-          <span>{{ hasRichTextContent(draft) ? "Continue your entry…" : "Add to the Description Log…" }}</span>
+          <span>{{ hasRichTextContent(draft) ? "Continue your entry…" : "Add to the Requirement Log…" }}</span>
         </button>
       </div>
     </div>
@@ -97,7 +97,7 @@
           :toolbar="toolbar"
           :fonts="fonts"
           :dense="$q.screen.lt.md"
-          placeholder="Add to the Description Log…"
+          placeholder="Add to the Requirement Log…"
           min-height="4rem"
           max-height="14rem"
           class="rtl__editor"
@@ -116,7 +116,7 @@
             :disable="sending || savingEdit || !hasRichTextContent(draft)"
             @click="save()"
           >
-            <q-tooltip>Add to the Description Log</q-tooltip>
+            <q-tooltip>Add to the Requirement Log</q-tooltip>
           </q-btn>
         </div>
       </div>
@@ -237,7 +237,7 @@ const load = async () => {
     emit("loaded", total.value);
   } catch (error) {
     console.error("Error while loading the requirement log", error);
-    notify.error(errorText(error, "The Description Log could not be loaded."));
+    notify.error(errorText(error, "The Requirement Log could not be loaded."));
   }
 };
 
@@ -315,7 +315,7 @@ const save = async (entry = null) => {
       });
     }
 
-    notify.success(isEditing ? "Description Log entry updated." : "Description Log entry added.");
+    notify.success(isEditing ? "Requirement Log entry updated." : "Requirement Log entry added.");
     emit("changed");
     if (isEditing) {
       editingId.value = null;
@@ -337,15 +337,15 @@ const save = async (entry = null) => {
 // ---- Delete ----
 const remove = async (entry) => {
   const ok = await confirm({
-    title: "Delete Description Log entry",
-    message: "Delete this Description Log entry? This cannot be undone.",
+    title: "Delete Requirement Log entry",
+    message: "Delete this Requirement Log entry? This cannot be undone.",
     confirmLabel: "Delete",
     type: "danger"
   });
   if (!ok) return;
   try {
     await requirementService.deleteRequirementChangeLog(entry.id);
-    notify.success("Description Log entry deleted.");
+    notify.success("Requirement Log entry deleted.");
     emit("changed");
     await load();
   } catch (error) {

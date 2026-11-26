@@ -3,7 +3,7 @@
     <app-detail-header :items="crumbs" :back-to="{ name: 'requirement-v2' }">
       <template #note>
         A requirement belongs to a project module. Its first log entry goes in the Requirement Log; later
-        entries are added from the requirement's Log tab. "Save & add another" keeps the project and
+        entries are added from the requirement's Requirement Log tab. "Save & add another" keeps the project and
         module for the next one.
       </template>
       <template #actions>

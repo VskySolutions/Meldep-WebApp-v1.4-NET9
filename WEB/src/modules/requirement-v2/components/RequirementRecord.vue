@@ -64,8 +64,8 @@
           >
             <q-tab name="overview" label="Overview" icon="o_dashboard" />
             <q-tab name="log" icon="o_history_edu">
-              <span class="q-tab__label rrec__tab-label">Desc Log<q-badge v-if="logCount" color="grey-3" text-color="grey-8" class="rrec__tab-count">{{ logCount }}</q-badge></span>
-              <q-tooltip>Description Log: detailed information about the requirement, as a log: the original description, then every entry added since</q-tooltip>
+              <span class="q-tab__label rrec__tab-label">Requirement Log<q-badge v-if="logCount" color="grey-3" text-color="grey-8" class="rrec__tab-count">{{ logCount }}</q-badge></span>
+              <q-tooltip>Requirement Log: detailed information about the requirement, as a log: the original description, then every entry added since</q-tooltip>
             </q-tab>
             <q-tab name="notes" icon="o_sticky_note_2">
               <span class="q-tab__label rrec__tab-label">Notes<q-badge v-if="counts?.notes" color="grey-3" text-color="grey-8" class="rrec__tab-count">{{ counts.notes }}</q-badge></span>

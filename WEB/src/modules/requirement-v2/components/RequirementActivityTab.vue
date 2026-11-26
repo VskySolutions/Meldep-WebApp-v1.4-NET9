@@ -16,7 +16,7 @@
           { label: 'Everything', value: 'all' },
           { label: 'Status & priority', value: 'changes' },
           { label: 'Dates', value: 'dates' },
-          { label: 'Desc Log', value: 'log' },
+          { label: 'Requirement Log', value: 'log' },
           { label: 'Notes', value: 'note' }
         ]"
       />
@@ -29,7 +29,7 @@
       <q-spinner color="primary" size="32px" />
     </div>
 
-    <app-empty-state v-else-if="!feed.length" icon="o_history" title="No activity yet" text="Status, priority and date changes, Description Log entries and notes will show here as they happen." />
+    <app-empty-state v-else-if="!feed.length" icon="o_history" title="No activity yet" text="Status, priority and date changes, Requirement Log entries and notes will show here as they happen." />
 
     <div v-else class="ract__days">
       <section v-for="day in days" :key="day.key" class="ract__day">
@@ -138,7 +138,7 @@ const feed = computed(() => {
   for (const requirement of logs.value) {
     for (const log of requirement.requirementChangeLog || []) {
       if (!hasRichTextContent(log.description)) continue;
-      out.push({ key: `log-${log.id}`, kind: "log", icon: "o_history_edu", what: "Description Log entry added", who: personName(log.createdBy), when: log.createdOnUtc, ts: displayTimestamp(log.createdOnUtc), html: excerpt(log.description, 240) });
+      out.push({ key: `log-${log.id}`, kind: "log", icon: "o_history_edu", what: "Requirement Log entry added", who: personName(log.createdBy), when: log.createdOnUtc, ts: displayTimestamp(log.createdOnUtc), html: excerpt(log.description, 240) });
     }
   }
 

@@ -8,7 +8,6 @@
             <app-breadcrumbs :items="crumbs" no-margin class="rrh__crumbs" />
             <q-icon name="o_chevron_right" size="1.2em" color="grey-6" />
           </template>
-          <span class="rrh__number">#{{ model?.requirementNumber }}</span>
           <q-icon v-if="model?.isPinned" name="o_push_pin" size="14px" class="rrh__pin">
             <q-tooltip>Pinned to the top of your list</q-tooltip>
           </q-icon>
@@ -32,7 +31,7 @@
         </div>
 
         <div class="rrh__title-row">
-          <h1 class="rrh__title">{{ model?.title || "Requirement" }}</h1>
+          <h1 class="rrh__title"><template v-if="model?.requirementNumber"><span class="rrh__number">#{{ model.requirementNumber }}</span> - </template>{{ model?.title || "Requirement" }}</h1>
           <app-info-tip v-if="pageNote" :text="pageNote" size="16px" color="grey-6" max-width="460px" anchor="bottom left" self="top left" class="rrh__tip" />
         </div>
 
@@ -86,13 +85,13 @@
           <q-tooltip>Edit the requirement</q-tooltip>
         </q-btn>
         <q-btn unelevated no-caps label="More" icon-right="o_expand_more" aria-label="More actions" class="rrh__more">
-          <q-tooltip :delay="500">Description Log, note, pin, colour and the other actions</q-tooltip>
+          <q-tooltip :delay="500">Requirement Log, note, pin, colour and the other actions</q-tooltip>
           <q-menu anchor="bottom right" self="top right" :offset="[0, 6]">
             <q-list dense class="rrh__menu">
               <template v-if="editable || canNotes">
                 <q-item v-if="editable" v-close-popup clickable @click="$emit('log')">
                   <q-item-section avatar><q-icon name="o_history_edu" size="18px" /></q-item-section>
-                  <q-item-section>Add to the Description Log</q-item-section>
+                  <q-item-section>Add to the Requirement Log</q-item-section>
                 </q-item>
                 <q-item v-if="canNotes" v-close-popup clickable @click="$emit('note')">
                   <q-item-section avatar><q-icon name="o_sticky_note_2" size="18px" /></q-item-section>
@@ -163,8 +162,8 @@
 </template>
 
 <script setup>
-// The one header of a requirement's page: Back and the crumb trail, the number, type and place; the
-// title with the page's note on an info tip; the short description; the status and priority as editable
+// The one header of a requirement's page: Back and the crumb trail, the type and place; the number and
+// title with the page's note on an info tip; the short description (when it says more than the title); the status and priority as editable
 // badges, the approval state, the due standing and the tags; and the actions. It replaces the separate
 // page header, so everything the page says about itself is said once. The related-work figures sit on
 // the record's tab bar (RequirementRecord), not here.
@@ -217,7 +216,12 @@ const statusBadge = computed(() => dropDownBadge(props.model?.status) || { label
 const priorityBadge = computed(() => dropDownBadge(props.model?.priority));
 const approvalBadge = computed(() => dropDownBadge(props.model?.approvalStatusDropDown));
 const due = computed(() => dueInfo(props.model?.plannedEndDate, props.model?.status?.dropDownValue));
-const shortDescription = computed(() => stripHtml(props.model?.shortDescription));
+// The short description, unless it only repeats the title above it.
+const sameText = (a, b) => String(a || "").replace(/\s+/g, " ").trim().toLowerCase() === String(b || "").replace(/\s+/g, " ").trim().toLowerCase();
+const shortDescription = computed(() => {
+  const text = stripHtml(props.model?.shortDescription);
+  return text && !sameText(text, props.model?.title) ? text : "";
+});
 const isDataIntegration = computed(() => props.model?.requirementType?.dropDownValue === "Data Integration");
 </script>
 

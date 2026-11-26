@@ -4,12 +4,12 @@
   <!-- In full screen the whole tab is moved to <body> and laid over the window; nothing in it is rebuilt,
        so an entry being written stays as it is. -->
   <teleport to="body" :disabled="!fullscreen">
-  <div :class="['rlt2 column no-wrap', { 'rlt2--full': fullscreen }]" :aria-label="fullscreen ? 'Description Log, full screen' : undefined">
+  <div :class="['rlt2 column no-wrap', { 'rlt2--full': fullscreen }]" :aria-label="fullscreen ? 'Requirement Log, full screen' : undefined">
     <!-- Over the whole window the page's header is out of sight: say whose log this is. -->
     <div v-if="fullscreen" class="rlt2__where q-px-md">
       <q-icon name="o_history_edu" size="18px" color="primary" />
       <span class="rlt2__where-title"><span v-if="model?.requirementNumber" class="rlt2__where-no">#{{ model.requirementNumber }}</span> {{ model?.title || "Requirement" }}</span>
-      <span class="rlt2__where-tab">Description Log</span>
+      <span class="rlt2__where-tab">Requirement Log</span>
     </div>
 
     <div class="rlt2__bar q-px-md q-pt-sm">

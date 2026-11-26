@@ -4,8 +4,9 @@
       <q-icon v-if="row.isPinned" name="o_push_pin" size="14px" class="rtc2__pin">
         <q-tooltip>Pinned to the top, for you</q-tooltip>
       </q-icon>
-      <span class="rtc2__number">#{{ row.requirementNumber }}</span>
-      <!-- A real link: middle-click and "open in new tab" work, and the page records which row was opened. -->
+      <!-- Real links: middle-click and "open in new tab" work, and the page records which row was opened.
+           The number and the title are the only parts of the cell that open the requirement. -->
+      <router-link :to="{ name: 'requirement-v2-detail', params: { id: row.id } }" class="rtc2__number" @click.stop="$emit('open', row)">#{{ row.requirementNumber }}</router-link>
       <router-link :to="{ name: 'requirement-v2-detail', params: { id: row.id } }" class="rtc2__title" @click.stop="$emit('open', row)">
         {{ row.title }}
       </router-link>
@@ -25,7 +26,7 @@
 </template>
 
 <script setup>
-// The primary cell of the requirement list: the number, the title (a link to the requirement's page)
+// The primary cell of the requirement list: the number and the title (links to the requirement's page)
 // and the short description under it — what a reader scans the list by. The project › module line is
 // for readings where those columns are hidden.
 defineProps({
@@ -60,6 +61,14 @@ defineEmits(["open"]);
   font-weight: 600;
   color: var(--ink-500, #647a82);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  text-decoration: none;
+}
+.rtc2__number:hover,
+.rtc2__number:focus-visible {
+  color: var(--q-primary);
+  text-decoration: underline;
+  outline: none;
 }
 .rtc2__title {
   color: var(--q-primary);
