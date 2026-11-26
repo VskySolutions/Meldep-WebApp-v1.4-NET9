@@ -1058,7 +1058,8 @@ namespace Vsky.Data
 
                 entity.Property(e => e.SiteId).IsRequired().HasMaxLength(450);
                 entity.Property(e => e.EmployeeId).IsRequired().HasMaxLength(450);
-                entity.Property(e => e.ManagerId).IsRequired().HasMaxLength(450);
+                // Optional, as the column is: the head of the org structure has no manager.
+                entity.Property(e => e.ManagerId).HasMaxLength(450);
                 entity.Property(e => e.DepartmentId).IsRequired().HasMaxLength(450);
                 entity.Property(e => e.RoleId).HasMaxLength(450);
                 entity.Property(e => e.Year).IsRequired();
