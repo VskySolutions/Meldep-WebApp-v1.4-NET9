@@ -1118,7 +1118,8 @@ onMounted(() => {
   font-weight: 400;
 }
 .req-page :deep(.rtc2__title) {
-  color: inherit;
+  color: #000;
+  text-decoration: none;
   font-weight: 400;
 }
 .req-page :deep(.rtc2__number) {
