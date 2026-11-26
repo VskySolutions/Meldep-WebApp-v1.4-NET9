@@ -220,7 +220,16 @@
               </span>
             </q-td>
             <q-td class="text-left">
+              {{ props.row.totalHoursStr }}
+            </q-td>
+            <q-td class="text-left">
+              {{ props.row.totalBreakStr }}
+            </q-td>
+            <q-td class="text-left">
               {{ props.row.actualHoursStr }}
+            </q-td>
+            <q-td class="text-left" style="white-space: pre-wrap; overflow-wrap: anywhere; max-width: 360px;">
+              {{ props.row.timeOutNote }}
             </q-td>
           </q-tr>
           <q-separator />
@@ -268,7 +277,10 @@ const pagination = ref({ sortBy: "createdOnUtc", descending: true, rowsPerPage: 
 const columns = ref([
   { name: "employeeId", label: "Employee Name", field: "employeeId", align: "left", sortable: true },
   { name: "timeInDate", label: "Time In-Out", field: "timeInDate", align: "left", sortable: true },
-  { name: "actualHoursStr", label: "Duration", field: "actualHoursStr", align: "left", sortable: false }
+  { name: "totalHoursStr", label: "Total", field: "totalHoursStr", align: "left", sortable: false },
+  { name: "totalBreakStr", label: "Break", field: "totalBreakStr", align: "left", sortable: false },
+  { name: "actualHoursStr", label: "Working Hours", field: "actualHoursStr", align: "left", sortable: false },
+  { name: "timeOutNote", label: "Time Out Note", field: "timeOutNote", align: "left", sortable: false }
 ]);
 
 // Get/Map TimeInTimeOut list to table

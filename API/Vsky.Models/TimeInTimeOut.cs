@@ -11,6 +11,9 @@ public class TimeInTimeOut : BaseEntity
     public string EmployeeId { get; set; }
     public string WorkHoursApprovalStatusId { get; set; }
 
+    /// <summary>What the employee chose to say when timing out (optional).</summary>
+    public string TimeOutNote { get; set; }
+
     public DateTime? TimeInDate { get; set; }
     public TimeSpan TimeIn { get; set; }
     public DateTime? TimeOutDate { get; set; }
@@ -34,6 +37,12 @@ public class TimeInTimeOut : BaseEntity
 
     [NotMapped]
     public string ActualHoursStr { get; set; }
+
+    [NotMapped]
+    public string TotalHoursStr { get; set; }
+
+    [NotMapped]
+    public string TotalBreakStr { get; set; }
 
     public virtual Site Site { get; set; }
     public virtual ApplicationUser CreatedBy { get; set; }

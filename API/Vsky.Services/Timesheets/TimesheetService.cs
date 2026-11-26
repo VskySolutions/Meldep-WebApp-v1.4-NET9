@@ -882,6 +882,28 @@ namespace Vsky.Services.Timesheets
         }
         #endregion
 
+        #region GetFilledTimesheetDates
+        // Title: GetFilledTimesheetDates
+        // Description: The dates, between the two given (both included), on which the employee has a filled timesheet: one with at least one line carrying hours, the same test as HasTimesheetForDate.
+        public async Task<List<DateTime>> GetFilledTimesheetDates(string siteId, string employeeId, DateTime fromDate, DateTime toDate)
+        {
+            var from = fromDate.Date;
+            var toExclusive = toDate.Date.AddDays(1);
+
+            var dates = await _timesheetRepository.TableNoTracking
+                .Where(t =>
+                    !t.Deleted &&
+                    t.SiteId == siteId &&
+                    t.EmployeeId == employeeId &&
+                    t.TimesheetDate >= from && t.TimesheetDate < toExclusive &&
+                    t.TimesheetLines.Any(l => !l.Deleted && l.Hours > 0))
+                .Select(t => t.TimesheetDate.Value)
+                .ToListAsync();
+
+            return dates.Select(d => d.Date).Distinct().ToList();
+        }
+        #endregion
+
         #region HasTimesheetForDate
         public async Task<bool> HasTimesheetForDate(
             string siteId,

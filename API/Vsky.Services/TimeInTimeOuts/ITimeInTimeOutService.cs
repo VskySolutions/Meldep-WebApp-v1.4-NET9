@@ -33,6 +33,10 @@ namespace Vsky.Services.TimeInTimeOuts
         #endregion
 
 
+        #region GetTimeInTimeOutsByEmployeeBetween
+        Task<List<TimeInTimeOut>> GetTimeInTimeOutsByEmployeeBetween(string siteId, string employeeId, DateTime fromDate, DateTime toDate);
+        #endregion
+
         #region GetTimeInTimeOutDetailsById
         Task<TimeInTimeOut> GetTimeInTimeOutDetailsById(string id);
         #endregion

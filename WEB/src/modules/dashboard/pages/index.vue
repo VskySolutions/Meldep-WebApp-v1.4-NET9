@@ -4,115 +4,7 @@
       <div class="q-card q-gutter-xs q-pa-sm">
         <div class="row">
           <div class="col-12 col-md-8 col-lg-9 col-xxl-9 q-pr-sm">
-            <div class="card-header with-tools bg-white text-blue-grey-5 q-mb-sm" style="border: 1px solid #1b75ab;">
-              <div class="row">
-                <div class="col-3 col-md-2 col-md-2 col-lg-2 bg-primary text-white flex flex-center">
-                  <h1 class="q-my-xs q-mx-sm">Time In - Out</h1>
-                </div>
-                <div class="col-9 col-md-10 col-lg-10 q-pa-xs">
-                  <div class="col-12 q-pl-xs">
-                    <div class="row items-center q-col-gutter-sm">
-                      <div class="col-auto">
-                        <div
-                          class="q-pa-sm bg-white row items-center"
-                          style="border: 1px solid #1976d2; width: fit-content;"
-                        >
-                          <span class="text-black">
-                            Current Status:
-                            <strong class="text-primary">{{ employeeStatus }}</strong>
-                          </span>
-                        </div>
-                      </div>
-                      <div class="col-auto">
-                        <q-btn
-                          :label="model.timeInDate && !model.timeOutDate ? 'Time Out' : 'Time In'"
-                          color="primary"
-                          no-caps
-                          :loading="processing"
-                          :disable="processing"
-                          @click="onSubmitTimeInOut(!!model.timeIn && !model.timeOutDate)"
-                        />
-                      </div>
-                      <div v-if="model.timeIn" class="col-auto row items-center no-wrap">
-                        <strong class="q-mr-xs text-black">Time In:</strong>
-                        <span class="text-primary">
-                          {{ model.timeInDate }} {{ model.timeIn }}
-                        </span>
-                      </div>
-                      <div v-if="model.timeOutDate" class="col-auto row items-center no-wrap">
-                        <strong class="q-mr-xs text-black">Time Out:</strong>
-                        <span class="text-primary">
-                          {{ model.timeOutDate }} {{ model.timeOut }}
-                        </span>
-                      </div>
-                      <div v-if="model.actualHoursStr" class="col-auto row items-center no-wrap">
-                        <strong class="q-mr-xs text-black">Duration:</strong>
-                        <span class="text-primary">
-                          {{ model.actualHoursStr }}
-                        </span>
-                      </div>
-                      <div class="col-auto">
-                        <q-btn
-                          outline
-                          label="View All"
-                          no-caps
-                          class="text-primary btnRounded"
-                          @click="$router.push('time-in-time-out/list')"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="hidden">
-              <div
-                class="q-pa-sm row items-center no-wrap"
-                style="border: 1px solid #1b75ab; width: fit-content;"
-              >
-                <div class="row items-center no-wrap q-mr-md">
-                  <div
-                    class="q-pa-sm bg-white q-mr-sm row items-center"
-                    style="border: 1px solid #1976d2; width: fit-content;"
-                  >
-                    <span class="text-black">
-                      Current Status:
-                      <strong class="text-primary">{{ employeeStatus }}</strong>
-                    </span>
-                  </div>
-                </div>
-                <div class="row items-center no-wrap">
-                  <q-btn
-                    :label="model.timeIn && !model.timeOut ? 'Time Out' : 'Time In'"
-                    color="primary"
-                    no-caps
-                    class="q-mr-md"
-                    :loading="processing"
-                    :disable="processing"
-                    @click="onSubmitTimeInOut(!!model.timeIn && !model.timeOut)"
-                  />
-                  <div v-if="model.timeIn" class="row items-center no-wrap q-mr-md">
-                    <strong class="q-mr-xs">Time In:</strong>
-                    <span class="text-primary">
-                      {{ model.timeIn }} {{ model.timeInDate }}
-                    </span>
-                  </div>
-                  <div v-if="model.timeOut" class="row items-center no-wrap">
-                    <strong class="q-mr-xs">Time Out:</strong>
-                    <span class="text-primary">
-                      {{ model.timeOut }} {{ model.timeOutDate }}
-                    </span>
-                  </div>
-                  <q-btn
-                    outline
-                    label="View All"
-                    no-caps
-                    class="text-primary btnRounded q-ml-sm"
-                    @click="$router.push('time-in-time-out/list')"
-                  />
-                </div>
-              </div>
-            </div>
+            <time-clock-card class="q-mb-sm" />
             <div v-if="quickLinkRows && quickLinkRows.length > 0" class="card-header with-tools bg-white text-blue-grey-5 q-mb-sm" style="border: 1px solid #1b75ab;">
               <div class="row">
                 <div class="col-3 col-md-2 col-md-2 col-lg-2 bg-primary text-white flex flex-center">
@@ -979,7 +871,6 @@ import { date, useQuasar } from "quasar";
 import { useAuthStore } from "stores/auth";
 import useFilters from "composables/useFilters";
 import { notifySuccess, getLocalStorage } from "assets/utils";
-import _ from "lodash";
 import { format } from "date-fns"; // Standard TimeZone Conversion
 
 import dailyplannerService from "modules/my-daily-planner/myDailyPlanner.service";
@@ -989,11 +880,11 @@ import eventLeaveService from "modules/leave-yearly-schedule/leaveYearlySchedule
 import projectService from "modules/project/projects.service";
 import projectActivitiesService from "modules/project-tasks-activities/projectTasksActivities.service";
 import commonService from "services/common.service";
-import timeInTimeOutService from "modules/timeInTimeOut/timeInTimeOut.service";
 import approveLeave from "modules/leave/components/_approveOrDeclineLeave.vue";
 import movementRegisterService from "src/modules/movementRegister/movementRegister.service";
 import moduleService from "modules/module/module.service";
 
+import TimeClockCard from "modules/timeInTimeOut/components/TimeClockCard.vue";
 import viewMovementRegister from "src/modules/movementRegister/components/view.vue";
 import editBreak from "src/modules/movementRegister/components/_addBreak.vue";
 import editTimeAdjustment from "src/modules/movementRegister/components/_addTimeAdjustment.vue";
@@ -1011,7 +902,6 @@ const dailyPlannerLoading = ref(false);
 const timesheetLoading = ref(false);
 const timesheetWeekHoursLoading = ref(false);
 const projectLoading = ref(false);
-const processing = ref(false);
 const loading = ref(true);
 const leaveLoading = ref(false);
 const taskActivityLoading = ref(false);
@@ -1046,12 +936,6 @@ const activitySearch = ref({
   activityStatusIds
 });
 
-const model = ref({
-  timeIn: "",
-  timeOut: "",
-  timeInDate: "",
-  timeOutDate: ""
-});
 
 const projectTableRef = ref();
 const projectRows = ref([]);
@@ -1428,58 +1312,6 @@ function getTotalHoursAllProjects(lines) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-// Fetch Time In / Time Out for a specific employee
-const getTimeInTimeOutDetailsByEmployeeId = (employeeId) => {
-  timeInTimeOutService.getTimeInTimeOutDetailsByEmployeeId(employeeId)
-    .then((resp) => {
-      model.value = _.cloneDeep(resp);
-    }).finally(() => {
-      loading.value = false;
-    });
-};
-
-async function onSubmitTimeInOut (isTimeOutAction = false) {
-  const id = isTimeOutAction ? model.value.id : null;
-  if (isTimeOutAction) {
-    $q.dialog({
-      title: "Confirmation",
-      message: "Are you sure you want to Time Out?",
-      ok: { label: "Yes", color: "primary" },
-      cancel: { label: "No", color: "negative" }
-    }).onOk(() => save(id, isTimeOutAction));
-  } else {
-    save(id, isTimeOutAction);
-  }
-}
-async function save (id, isTimeOutAction) {
-  try {
-    processing.value = true;
-    await timeInTimeOutService.saveTimeInTimeOut(id);
-    // if (!isTimeOutAction) {
-    //   // Store time when user clicks Time In and it is saved
-    //   localStorage.setItem("timeIn", new Date().getTime());
-    // } else {
-    //   // Remove time when user Time Out
-    //   localStorage.removeItem("timeIn");
-    // }
-    notifySuccess({
-      message: isTimeOutAction
-        ? "Time Out saved successfully."
-        : "Time In saved successfully."
-    });
-
-    getTimeInTimeOutDetailsByEmployeeId(storedUser.employeeId);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setTimeout(() => (processing.value = false), 1000);
-  }
-}
-
-const employeeStatus = computed(() =>
-  model.value.timeInDate && !model.value.timeOutDate ? "IN" : "OUT"
-);
-
 const formatMinutesToHours = (minutes) => {
   if (minutes === 0) return "0 mins";
   if (!minutes || isNaN(minutes)) return "";
@@ -1662,7 +1494,6 @@ onMounted(() => {
   getAllActivityStatusListForDropDown("Activity Status");
   getTimesheetTotalHoursByWeekAndMonth("weekly");
   getTimesheetTotalHoursByWeekAndMonth("monthly");
-  getTimeInTimeOutDetailsByEmployeeId(storedUser.employeeId);
   getMovementRegisterDateRange();
   getMovementRegisters();
   getEmployeeLeaveListForMovReg();

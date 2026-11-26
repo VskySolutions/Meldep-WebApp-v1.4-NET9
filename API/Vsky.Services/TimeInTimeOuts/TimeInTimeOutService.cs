@@ -93,6 +93,9 @@ namespace Vsky.Services.TimeInTimeOuts
                 TimeOutDate = x.TimeOutDate,
                 ActualHours = x.ActualHours,
                 ActualHoursStr = FormatTimeSpanToString(x.ActualHours),
+                TimeOutNote = x.TimeOutNote,
+                TotalHoursStr = FormatTimeSpanToString(x.TotalHours),
+                TotalBreakStr = FormatTimeSpanToString(x.TotalBreak),
                 EmployeeId = x.EmployeeId,
                 Employee = new Employee
                 {
@@ -135,6 +138,7 @@ namespace Vsky.Services.TimeInTimeOuts
                 .Select(x => new TimeInTimeOut
                 {
                     Id = x.Id,
+                    EmployeeId = x.EmployeeId,
                     TimeIn = x.TimeIn,
                     TimeOut = x.TimeOut,
                     //TimeInStr = FormatTimeTo12Hour(x.TimeIn),
@@ -142,8 +146,33 @@ namespace Vsky.Services.TimeInTimeOuts
                     TimeInDate = x.TimeInDate,
                     TimeOutDate = x.TimeOutDate,
                     ActualHoursStr = FormatTimeSpanToString(x.ActualHours),
+                    TimeOutNote = x.TimeOutNote,
                 })
                 .FirstOrDefaultAsync();
+        }
+        #endregion
+
+        #region GetTimeInTimeOutsByEmployeeBetween
+        // Title: GetTimeInTimeOutsByEmployeeBetween
+        // Description: The employee's sessions whose time-in date (UTC) lies between the two dates, both included: just the id and the time-in, to tell which sessions belong to one day.
+        public async Task<List<TimeInTimeOut>> GetTimeInTimeOutsByEmployeeBetween(string siteId, string employeeId, DateTime fromDate, DateTime toDate)
+        {
+            var from = fromDate.Date;
+            var toExclusive = toDate.Date.AddDays(1);
+
+            return await _timeInTimeOutRepository.TableNoTracking
+                .Where(x => !x.Deleted
+                    && x.SiteId == siteId
+                    && x.EmployeeId == employeeId
+                    && x.TimeInDate != null && x.TimeInDate >= from && x.TimeInDate < toExclusive)
+                .Select(x => new TimeInTimeOut
+                {
+                    Id = x.Id,
+                    EmployeeId = x.EmployeeId,
+                    TimeInDate = x.TimeInDate,
+                    TimeIn = x.TimeIn
+                })
+                .ToListAsync();
         }
         #endregion
 
@@ -163,6 +192,7 @@ namespace Vsky.Services.TimeInTimeOuts
                 ActualHours = x.ActualHours,
                 TotalHours = x.TotalHours,
                 TotalBreak = x.TotalBreak,
+                TimeOutNote = x.TimeOutNote,
                 TimeInStr = FormatTimeTo12Hour(x.TimeIn),
                 TimeOutStr = FormatTimeTo12Hour(x.TimeOut),
                 CreatedOnUtc = x.CreatedOnUtc,

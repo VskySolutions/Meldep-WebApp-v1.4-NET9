@@ -1821,6 +1821,7 @@ namespace Vsky.Data
                 entity.Property(e => e.SiteId).IsRequired().HasMaxLength(450);
                 entity.Property(e => e.EmployeeId).HasMaxLength(450);
                 entity.Property(e => e.WorkHoursApprovalStatusId).HasMaxLength(450);
+                entity.Property(e => e.TimeOutNote).HasMaxLength(500);
                 entity.Property(e => e.TimeIn);
                 entity.Property(e => e.TimeOut);
                 entity.Property(e => e.TimeInDate).HasPrecision(6);
@@ -1843,8 +1844,13 @@ namespace Vsky.Data
             {
                 entity.ToTable("TimeInTimeOutBreakDetail");
                 entity.Property(e => e.TimeInTimeOutId).HasMaxLength(450);
-                entity.Property(e => e.TotalBreak);
-                entity.Property(e => e.BreakReason).IsRequired().HasMaxLength(50);
+                // The table keeps these three as text (nvarchar(50)), so they are converted here: a break is
+                // stored as two full UTC instants and its length, with no change to the database.
+                entity.Property(e => e.BreakOut).HasConversion<string>().HasMaxLength(50);
+                entity.Property(e => e.BreakIn).HasConversion<string>().HasMaxLength(50);
+                entity.Property(e => e.TotalBreak).HasConversion<string>().HasMaxLength(50);
+                // Holds the break's reason and, once cancelled, the cancellation reason after it (TimeClockRules).
+                entity.Property(e => e.BreakReason).IsRequired().HasMaxLength(250);
                 entity.Property(e => e.CreatedById).IsRequired().HasMaxLength(450);
                 entity.Property(e => e.CreatedOnUtc).HasPrecision(6);
                 entity.Property(e => e.UpdatedById).HasMaxLength(450);

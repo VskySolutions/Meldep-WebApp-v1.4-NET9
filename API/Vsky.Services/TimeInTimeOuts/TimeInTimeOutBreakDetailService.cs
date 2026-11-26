@@ -47,20 +47,30 @@ namespace Vsky.Services.TimeInTimeOuts
 
         #region GetBreakInOutByTimeInOutId
         // Title: GetBreakInOutByTimeInOutId
-        // Description:This method retrieves the Break In and Break Out time details from the TimeInTimeOutBreakDetail entity for the specified TimeInTimeOutId.It returns the first non-deleted break record containing the Id, BreakIn, and BreakOut values.
+        // Description: Every non-deleted break of the given Time In - Out session, oldest first. The rows are whole (not a projection), so the running break among them can be ended and saved back as it is.
         public async Task<List<TimeInTimeOutBreakDetail>> GetBreakInOutByTimeInOutId(string timeInTimeOutId)
         {
             var items = await _timeInTimeOutBreakDetailRepository.TableNoTracking
                 .Where(x => x.TimeInTimeOutId == timeInTimeOutId && !x.Deleted)
-                .Select(x => new TimeInTimeOutBreakDetail
-                {
-                    Id = x.Id,
-                    BreakIn = x.BreakIn,
-                    BreakOut = x.BreakOut
-                })
+                .OrderBy(x => x.CreatedOnUtc)
                 .ToListAsync();
 
             return items;
+        }
+        #endregion
+
+        #region GetBreaksByTimeInOutIds
+        // Title: GetBreaksByTimeInOutIds
+        // Description: Every non-deleted break of the given Time In - Out sessions (the other sessions of a day), oldest first.
+        public async Task<List<TimeInTimeOutBreakDetail>> GetBreaksByTimeInOutIds(IList<string> timeInTimeOutIds)
+        {
+            if (timeInTimeOutIds == null || timeInTimeOutIds.Count == 0)
+                return new List<TimeInTimeOutBreakDetail>();
+
+            return await _timeInTimeOutBreakDetailRepository.TableNoTracking
+                .Where(x => timeInTimeOutIds.Contains(x.TimeInTimeOutId) && !x.Deleted)
+                .OrderBy(x => x.CreatedOnUtc)
+                .ToListAsync();
         }
         #endregion
 

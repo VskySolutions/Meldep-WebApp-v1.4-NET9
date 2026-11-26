@@ -10,9 +10,10 @@ namespace Vsky.Api.Models
         public string TimeInTimeOutId { get; set; }
         public string MovementRegisterId { get; set; }
         //public string SiteId { get; set; }
-        public TimeSpan BreakIn { get; set; }
-        public TimeSpan BreakOut { get; set; }
-        public TimeSpan TotalBreak { get; set; }
+        // BreakOut = stepped out (break starts), BreakIn = came back (break ends); UTC instants, as on the entity.
+        public DateTime? BreakIn { get; set; }
+        public DateTime? BreakOut { get; set; }
+        public TimeSpan? TotalBreak { get; set; }
         public string BreakReason { get; set; }
         public string CreatedById { get; set; }
         public DateTime CreatedOnUtc { get; set; }

@@ -12,6 +12,7 @@ namespace Vsky.Api.Models
         public string SiteId { get; set; }
         public string EmployeeId { get; set; }
         public string WorkHoursApprovalStatusId { get; set; }
+        public string TimeOutNote { get; set; }
         public DateTime? TimeInDate { get; set; }
 
         public TimeSpan TimeIn { get; set; }
@@ -33,6 +34,8 @@ namespace Vsky.Api.Models
         public string TimeInDateStr { get; set; }
         public string TimeOutDateStr { get; set; }
         public string ActualHoursStr { get; set; }
+        public string TotalHoursStr { get; set; }
+        public string TotalBreakStr { get; set; }
         public string TimeInStr { get; set; }
         public TimeSpan? TimeInSpan { get; set; }
         public string TimeOutStr { get; set; }

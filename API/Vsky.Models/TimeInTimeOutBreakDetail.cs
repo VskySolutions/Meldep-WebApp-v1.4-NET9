@@ -1,21 +1,24 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Vsky.Core;
 
 namespace Vsky.Models;
 
+/// <summary>
+/// One break inside a Time In - Out session. The names read from the office door: BreakOut is the moment
+/// the employee stepped out (the break starts) and BreakIn the moment they came back (the break ends).
+/// Both are full UTC instants, so a break that crosses midnight needs no guessing; BreakIn stays null
+/// while the break is running.
+/// </summary>
 public class TimeInTimeOutBreakDetail : BaseEntity
 {
     public string TimeInTimeOutId { get; set; }
     public string MovementRegisterId { get; set; }
     //public string SiteId { get; set; }
-    public TimeSpan BreakIn { get; set; }
-    public TimeSpan BreakOut { get; set; }
-    public TimeSpan TotalBreak { get; set; }
+    public DateTime? BreakIn { get; set; }
+    public DateTime? BreakOut { get; set; }
+    /// <summary>Length of the finished break; null while it is running.</summary>
+    public TimeSpan? TotalBreak { get; set; }
     public string BreakReason { get; set; }
     public string CreatedById { get; set; }
     public DateTime CreatedOnUtc { get; set; }
@@ -31,5 +34,3 @@ public class TimeInTimeOutBreakDetail : BaseEntity
     //public virtual Site Sites { get; set; }
     public virtual TimeInTimeOut TimeInTimeOut { get; set; }
 }
-
-

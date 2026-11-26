@@ -24,6 +24,10 @@ namespace Vsky.Services.TimeInTimeOuts
         Task<List<TimeInTimeOutBreakDetail>> GetBreakInOutByTimeInOutId(string timeInTimeOutId);
         #endregion
 
+        #region GetBreaksByTimeInOutIds
+        Task<List<TimeInTimeOutBreakDetail>> GetBreaksByTimeInOutIds(IList<string> timeInTimeOutIds);
+        #endregion
+
         #region GetTimeInTimeOutBreakDetailByTimeInTimeOutId
         Task<TimeInTimeOutBreakDetail> GetTimeInTimeOutBreakDetailByTimeInTimeOutId(string timeInTimeOutId, string id = null);
         #endregion

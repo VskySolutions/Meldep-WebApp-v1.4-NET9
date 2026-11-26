@@ -96,6 +96,10 @@ namespace Vsky.Services.Timesheets
         List<Timesheet> GetTimesheetDescriptionsByRequirementId(string siteId, string requirementId);
         #endregion
 
+        #region GetFilledTimesheetDates
+        Task<List<DateTime>> GetFilledTimesheetDates(string siteId, string employeeId, DateTime fromDate, DateTime toDate);
+        #endregion
+
         #region HasTimesheetForDate
         Task<bool> HasTimesheetForDate(
             string siteId,
