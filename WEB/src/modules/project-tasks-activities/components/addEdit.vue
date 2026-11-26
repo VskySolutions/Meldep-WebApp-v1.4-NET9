@@ -144,6 +144,7 @@
                   <div class="form-group Activity">
                     <label class="label q-mb-xs text-black">Project Task Activity Files</label>
                     <multiFileUploader
+                      :key="model.projectTaskActivityFiles?.length"
                       :initial-files="model.projectTaskActivityFiles"
                       :allowed-extensions="[
                         '.pdf','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx'

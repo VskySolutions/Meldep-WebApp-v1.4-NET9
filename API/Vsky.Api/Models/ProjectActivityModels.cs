@@ -77,6 +77,8 @@ namespace Vsky.Api.Models
         public List<string> ProjectIds { get; set; }
         public string ProjectId { get; set; }
         public List<string> ProjectModuleIds { get; set; }
+        public List<string> RequirementIds { get; set; }
+        public List<string> ProjectTaskIds { get; set; }
         public List<string> ActivityNameIds { get; set; }
         public string TargetMonthStr { get; set; }
         public string ActivityTargetMonthStr { get; set; }

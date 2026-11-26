@@ -303,6 +303,7 @@
                       <div class="col-xxl-3 col-lg-3 col-md-3 col-sm-3 col-xs-12">
                         <div class="form-group">
                           <multiFileUploader
+                            :key="model.projectTaskFiles?.length"
                             :initial-files="model.projectTaskFiles"
                             :allowed-extensions="[
                               '.pdf','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx', '.csv'

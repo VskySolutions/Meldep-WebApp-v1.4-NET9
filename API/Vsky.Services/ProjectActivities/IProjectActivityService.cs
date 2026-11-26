@@ -40,6 +40,8 @@ namespace Vsky.Services.ProjectActivities
            string activeStatus,
            List<string> projectIds,
            List<string> projectModuleIds,
+           List<string> requirementIds,
+           List<string> projectTaskIds,
            List<string> assignedToId,
            List<string> activityNameIds,
            List<string> activityStatusIds,

@@ -146,6 +146,7 @@
                 <q-card-section>
                   <div class="editor-wrapper relative-position">
                     <multiFileUploader
+                      :key="model.tempFiles?.length"
                       :initial-files="item.tempFiles"
                       :allowed-extensions="[
                         '.jpg','.xls','.xlsx','.doc','.docx','.jpeg','.png','.ppt','.pptx'

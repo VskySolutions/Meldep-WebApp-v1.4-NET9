@@ -297,6 +297,7 @@
                       <i>Allowed Files: jpg, png, jpeg, pdf, excel, doc, ppt</i>
                     </div> -->
                     <multiFileUploader
+                      :key="model.expenseAdvanceRequestFiles?.length"
                       :initialFiles="model.expenseAdvanceRequestFiles"
                       :allowedExtensions="[
                         '.jpg','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx', 'pdf'

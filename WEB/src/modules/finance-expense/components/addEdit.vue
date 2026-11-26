@@ -154,6 +154,7 @@
                   <div class="q-mb-xs text-black"><label>Files</label></div>
                   <div class="form-group">
                     <multiFileUploader
+                      :key="model.expenseFiles?.length"
                       :initialFiles="model.expenseFiles"
                       :allowedExtensions="[
                         '.jpg','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx','pdf'
@@ -161,6 +162,7 @@
                       :maxSizeInMb="25"
                       label="Drag files here or (+) to upload."
                       @files-selected="handleFiles"
+                      @files-valid="isFilesValid = $event"
                     />
                   </div>
                 </div>
@@ -492,6 +494,7 @@ const ExpId = ref("");
 const documentUploaderRef = ref(null);
 const processing = ref(false);
 const activeButton = ref("");
+const isFilesValid = ref(true);
 
 const status = ref("");
 const isRecurring = ref(false);
@@ -733,6 +736,11 @@ const onSubmit = async (statusValue) => {
 
     const isExpenseValid = await v$.value.$validate();
     if (!isExpenseValid) return;
+    
+    if (!isFilesValid.value) {
+      notifyWarning({ message: "Please upload valid files" });
+      return;
+    }
 
     if (activeExpenses.length === 0) {
       notifyError({ message: "Add at least one category." });
@@ -1026,6 +1034,8 @@ function removeFile (index) {
     file.flag = "remove";
   }
   model.value.expenseFiles.splice(index, 1);
+  isFilesValid.value = true;
+
   if (model.value.expenseFiles.length === 0) {
     model.value.expenseFileFlag = "remove";
   }

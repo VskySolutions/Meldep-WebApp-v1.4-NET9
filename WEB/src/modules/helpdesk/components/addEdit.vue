@@ -456,6 +456,7 @@
                       <i>Allowed Files: jpg, png, jpeg, pdf, excel, doc, ppt</i>
                     </div> -->
                     <multiFileUploader
+                      :key="model.helpDeskFiles?.length"
                       :initialFiles="model.helpDeskFiles"
                       :allowedExtensions="[
                         '.pdf','.xls','.xlsx','.doc','.docx','.jpeg','.jpg','.png','.ppt','.pptx'

@@ -188,6 +188,8 @@ namespace Vsky.Api.Controllers
                     searchModel.ActiveStatus,
                     searchModel.ProjectIds,
                     searchModel.ProjectModuleIds,
+                    searchModel.RequirementIds,
+                    searchModel.ProjectTaskIds,
                     searchModel.AssignedToIds,
                     searchModel.ActivityNameIds,
                     searchModel.ActivityStatusIds,

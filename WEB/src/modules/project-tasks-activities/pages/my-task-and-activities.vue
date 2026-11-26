@@ -51,12 +51,27 @@
                       <multiSelectDropdown
                         v-model="search.projectModuleIds"
                         label="Project Module"
+                        :disable="!search.projectIds?.length"
                         :options="projectModulesByProjectIdForDropdown.list.value"
                         :filter="projectModulesByProjectIdForDropdown.filter"
+                      />                      
+                      <multiSelectDropdown
+                        v-model="search.requirementIds"
+                        label="Requirement"
+                        :disable="!search.projectModuleIds?.length"
+                        :options="requirementsByProjectModuleIdForDropdown.list.value"
+                        :filter="requirementsByProjectModuleIdForDropdown.filter"
+                      />
+                      <multiSelectDropdown
+                        v-model="search.projectTaskIds"
+                        label="Task Name"
+                        :disable="!search.requirementIds?.length"
+                        :options="projectTasksByProjectIdAndModuleIdForDropdown.list.value"
+                        :filter="projectTasksByProjectIdAndModuleIdForDropdown.filter"
                       />
                       <multiSelectDropdown
                         v-model="search.assignedToIds"
-                        label="Activity Owner"
+                        label="Owner"
                         :options="activeEmployeesDropdown.list.value"
                         :filter="activeEmployeesDropdown.filter"
                       />
@@ -462,7 +477,6 @@
                           )"
                         />
                       </q-td>
-
                       <!-- Project Module -->
                       <q-td style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal; width: 15%;" class="hoverable-cell" @click="onProjectModuleView(activityProps.row.projectModule.id)">
                         <span
@@ -472,6 +486,18 @@
                           <q-tooltip>View Project Module</q-tooltip>
                         </span>
                       </q-td>
+                      
+                      <!-- Requirement -->
+                      <q-td style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal; width: 10%;" class="text-left hoverable-cell">
+                      <span 
+                        v-if="activityProps.row.task.requirement.title"                        
+                        @click="setActiveRowIdInLocalStorage(props.row.id); $router.push({ path: '/requirement-center', state: { requirementId: activityProps.row.task.requirement?.id } })"
+                        >
+                          {{ activityProps.row.task.requirement.title }}
+                          <q-tooltip>View Requirement</q-tooltip>
+                        </span>
+                      </q-td>
+
                        <q-td style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal; width: 5%;" class="text-right hoverable-cell">
                         <span v-if="activityProps.row.showTaskNumber" @click="onProjectTaskView(activityProps.row.task.id, refreshProjectTaskActivityList)">
                           {{ activityProps.row.task.projectTaskNumber }}
@@ -696,45 +722,10 @@
                             </template>
                           </q-popup-edit>
                         </q-icon>
-                        <q-icon
-                          name="o_visibility"
-                          class="cursor-pointer q-mr-sm"
-                          size="xs"
-                          @click="onProjectTaskActivityView(activityProps.row.id)"
-                        >
-                          <q-tooltip>
-                            <!-- {{ activityProps.row.isDescription ? 'Please Add Description First' : 'View' }} -->
-                              View
-                          </q-tooltip>
-                        </q-icon>
-                        <q-icon v-can
-                          v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
-                          name="o_edit"
-                          class="cursor-pointer q-mr-sm"
-                          size="xs"
-                          @click="onProjectTaskActivityEdit(activityProps.row.id, activityProps.row.project.id, activityProps.row.projectModule.id, activityProps.row.task.name, activityProps.row.project.name, activityProps.row.projectModule.name, true, refreshProjectTaskActivityList)"
-                        >
-                          <q-tooltip>
-                            <!-- {{ activityProps.row.isDescription ? 'Please Add Description First' : 'Edit' }} -->
-                              Edit
-                          </q-tooltip>
-                        </q-icon>
-                        <q-icon
-                          v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
-                          name="o_timer"
-                          class="cursor-pointer q-mr-sm ss hidden"
-                          size="xs"
-                          @click="onStartProjectTaskActivityTimer(activityProps.row, startNewTask)"
-                        >
-                          <q-tooltip>
-                            <!-- {{ activityProps.row.isDescription ? 'Please Add Description First' : 'Start Task Timer' }} -->
-                              Start Task Timer
-                          </q-tooltip>
-                        </q-icon>
                         <a
                           v-if="!isViewer || (isViewer && (activityProps.row.isEditable || activityProps.row.isNotes))"
                           style="position: relative;"
-                          class="q-icon notranslate cursor-pointer q-ml-sm q-mr-md"
+                          class="q-icon notranslate cursor-pointer q-ml-sm q-mr-sm"
                           @click="onNoteAdd(activityProps.row.id, 'project Activities', activityProps.row.project.id, activityProps.row.project.name, activityProps.row.name, '', refreshProjectTaskActivityList)"
                         >
                           <q-tooltip anchor="bottom middle" self="top middle">
@@ -750,30 +741,67 @@
                             :label="activityProps.row.activitiesCount"
                           />
                         </a>
-                        <q-icon v-can
-                          name="o_delete_outline"
-                          class="cursor-pointer q-mr-sm hidden"
-                          color="negative"
-                          size="xs"
-                          @click="onSubmitProjectTaskActivityDelete(activityProps.row.id, activityProps.row.name, activityProps.row.project.name, refreshProjectTaskActivityList)"
+                        <q-btn
+                          dense
+                          flat
+                          icon="o_more_vert"
+                          color="primary"
                         >
-                          <q-tooltip>Delete</q-tooltip>
-                        </q-icon>
-                        <q-icon
-                          v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
-                          :name="activityProps.row.active ? 'o_block' : 'o_check_circle_outline'"
-                          :color="activityProps.row.active ? 'negative' : 'positive'" class="cursor-pointer"
-                          @click="onSubmitProjectTaskActivityStatus(activityProps.row, refreshProjectTaskActivityList)"
-                        >
-                          <q-tooltip>
-                            {{
-                              // activityProps.row.isDescription
-                              //   ? 'Please Add Description First'
-                              //   : (activityProps.row.active ? 'Make Inactive' : 'Set Active')
-                              activityProps.row.active ? 'Make Inactive' : 'Set Active'
-                            }}
-                          </q-tooltip>
-                        </q-icon>
+                          <q-tooltip>More Options</q-tooltip>
+                          <q-menu auto-close>
+                            <q-list style="min-width: 180px">
+                              <q-item
+                                v-ripple clickable
+                                @click="onProjectTaskActivityView(activityProps.row.id)"
+                              >
+                                <q-item-section avatar><q-icon name="o_visibility" size="xs" /></q-item-section>
+                                <q-item-section>View</q-item-section>
+                              </q-item>
+                              <q-item
+                                v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
+                                v-ripple clickable
+                                @click="setActiveRowIdInLocalStorage(activityProps.row.id);
+                                  onProjectTaskActivityEdit(activityProps.row.id, activityProps.row.project.id, activityProps.row.projectModule.id, activityProps.row.task.name, activityProps.row.project.name, activityProps.row.projectModule.name, true, refreshProjectTaskActivityList)"
+                              >
+                                <q-item-section avatar><q-icon name="o_edit" size="xs" /></q-item-section>
+                                <q-item-section>Edit</q-item-section>
+                              </q-item>
+                              <q-item
+                                v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
+                                v-ripple clickable
+                                class="hidden"
+                                @click="onStartProjectTaskActivityTimer(activityProps.row, startNewTask)"
+                              >
+                                <q-item-section avatar><q-icon name="o_timer" size="xs" /></q-item-section>
+                                <q-item-section>Start Task Timer</q-item-section>
+                              </q-item>
+                              <q-item
+                                v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
+                                v-ripple
+                                clickable
+                                @click="onSubmitProjectTaskActivityStatus(activityProps.row, refreshProjectTaskActivityList)"
+                              >
+                                <q-item-section avatar>
+                                  <q-icon
+                                    :name="activityProps.row.active ? 'o_block' : 'o_check_circle_outline'"
+                                    :color="activityProps.row.active ? 'negative' : 'positive'" class="cursor-pointer"
+                                    size="xs"
+                                  />
+                                </q-item-section>
+                                <q-item-section>{{ activityProps.row.active ? 'Make Inactive' : 'Set Active' }}</q-item-section>
+                              </q-item>
+                              <q-item
+                                v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
+                                v-ripple
+                                clickable
+                                @click="onSubmitProjectTaskActivityDelete(activityProps.row.id, activityProps.row.name, activityProps.row.project.name, refreshProjectTaskActivityList)"
+                              >
+                                <q-item-section avatar><q-icon name="o_delete_outline" color="negative" size="xs" /></q-item-section>
+                                <q-item-section class="text-negative">Delete</q-item-section>
+                              </q-item>
+                            </q-list>                            
+                          </q-menu>
+                        </q-btn>
                       </q-td>
                       <q-dialog v-model="showPopup[activityProps.row.id]" class="customDialog" persistent full-height position="right" @hide="onDialogHide">
                         <q-card class="q-dialog-plugin PersonMain card-header with-tools headerBasic" style="width:1200px !important; max-width: 100vw !important;">
@@ -875,6 +903,7 @@ import projectModule from "src/modules/project/utils/dropdowns.js";
 import { getEditorConfig } from "src/composables/form-inputs/useEditorSettings.js";
 import useSiteTableState from "composables/dataTable/useSiteTableState.js";
 import useMultiSort from "composables/dataTable/useMultiSort.js";
+import requirementModule from "src/modules/requirement/utils/dropdowns.js";
 
 // Shared DataTable Views
 import searchFilterBar from "src/components/dataTable/_searchFilterBar.vue";
@@ -963,6 +992,8 @@ const defaultSearch = {
   projectTaskNumber: 0,
   projectIds: [],
   projectModuleIds: [],
+  requirementIds: [],
+  projectTaskIds: [],
   assignedToIds: user?.employeeId ? [user.employeeId] : [],
   activityNameIds: [],
   activityStatusIds: [],
@@ -1023,12 +1054,13 @@ const rows = ref([]);
 const columns = ref([
   { name: "project.name", label: "Project Name", field: "project.name", align: "left", sortable: true, hidden: true },
   { name: "projectModule.name", label: "Project Module", field: "projectModule.name", align: "left", sortable: true },
+  { name: "task.requirement.title", label: "Requirement", field: "task.requirement.title", align: "left", sortable: true },
   { name: "task.projectTaskNumber", label: "Task No", field: "task.projectTaskNumber", align: "right", sortable: true },
   { name: "task.name", label: "Task Name", field: "task.name", align: "left", sortable: true },
   { name: "weekDates", label: "Week", field: row => row.weekDates.join(", "), align: "center", sortable: false },
   // { name: "task.status.dropDownValue", label: "Task Status", field: "task.status.dropDownValue", align: "left", sortable: true, style: "display: none", headerStyle: "display: none" },
   // { name: "name", label: "Activity Type", field: "name", align: "left", sortable: true },
-  { name: "assignedTo.person.firstname", label: "Activity Owner", field: "assignedTo.person.firstname", align: "left", sortable: true },
+  { name: "assignedTo.person.firstname", label: "Owner", field: "assignedTo.person.firstname", align: "left", sortable: true },
   { name: "activityStatus.dropDownValue", label: "Activity Status", field: "activityStatus.dropDownValue", align: "left", sortable: true }
   // { name: "task.estimateTime", label: "Task Est. Hrs", field: "task.estimateTime", align: "left", sortable: true }
   // { name: "estimateHours", label: "Est. Hrs", field: "estimateHours", align: "right", sortable: true }
@@ -1246,6 +1278,8 @@ const onAdvanceClear = () => {
   search.value.activeStatus = defaultSearch.activeStatus;
   search.value.projectIds = [];
   search.value.projectModuleIds = [];
+  search.value.requirementIds = [];
+  search.value.projectTaskIds = [];
   search.value.activityNameIds = [];
   search.value.activityStatusIds = [];
   search.value.statusIds = [];
@@ -1292,7 +1326,17 @@ const {
 } = projectTasksActivities();
 const { projectModulesByProjectIdForDropdown } = projectModuleOfProjectModule();
 const { activeEmployeesDropdown } = employeeModule();
-const { projectTaskStatusForDropdown } = projectTaskModule();
+const { projectTaskStatusForDropdown, projectTasksByProjectIdAndModuleIdForDropdown } = projectTaskModule();
+const { requirementsByProjectModuleIdForDropdown } = requirementModule();
+
+const convertProjectIdsAndModuleIds = (projectIds, moduleIds) => {
+  const projectId = Array.isArray(projectIds) ? projectIds.join(",") : projectIds || null;
+  const projectModuleId = Array.isArray(moduleIds) ? moduleIds.join(",") : moduleIds || null;
+  return {
+    projectId: projectId || null,
+    projectModuleId: projectModuleId || null
+  };
+};
 
 //  --------------------------------------------------------------------------------------------------------------------------------------------------
 // Dropdowns
@@ -1896,7 +1940,9 @@ const appliedFilters = computed(() => ({
   ...mapSingleFilterToLabel(search.value.activeStatus, statusList, "Active/Inactive"),
   ...mapFilterToLabel(search.value.projectIds, projectNameDropdown.list, "Project Name"),
   ...mapFilterToLabel(search.value.projectModuleIds, projectModulesByProjectIdForDropdown.list, "Project Module"),
-  ...mapFilterToLabel(search.value.assignedToIds, activeEmployeesDropdown.list, "Activity Owner"),
+  ...mapFilterToLabel(search.value.requirementIds, requirementsByProjectModuleIdForDropdown.list, "Requirement"),
+  ...mapFilterToLabel(search.value.projectTaskIds, projectTasksByProjectIdAndModuleIdForDropdown.list, "Task Name"),
+  ...mapFilterToLabel(search.value.assignedToIds, activeEmployeesDropdown.list, "Owner"),
   ...mapFilterToLabel(search.value.activityNameIds, projectTaskActivityNameDropdown.list, "Activity Type"),
   ...mapFilterToLabel(search.value.activityStatusIds, projectTaskActivityStatusDropdown.list, "Activity Status"),
   ...mapFilterToLabel(search.value.statusIds, projectTaskStatusForDropdown.list, "Task Status"),
@@ -1912,7 +1958,11 @@ function onClearFilters (key) {
     search.value.projectIds = [];
   } else if (key === "Project Module") {
     search.value.projectModuleIds = [];
-  } else if (key === "Activity Owner") {
+  } else if (key === "Requirement") {
+    search.value.requirementIds = [];
+  } else if (key === "Task Name") {
+    search.value.projectTaskIds = [];
+  } else if (key === "Owner") {
     search.value.assignedToIds = [];
   } else if (key === "Activity Type") {
     search.value.activityNameIds = [];
@@ -1931,7 +1981,9 @@ function getFilterCount (key) {
   switch (key) {
   case "Project Name": return search.value.projectIds?.length || 0;
   case "Project Module": return search.value.projectModuleIds?.length || 0;
-  case "Activity Owner": return search.value.assignedToIds?.length || 0;
+  case "Requirement": return search.value.requirementIds?.length || 0;
+  case "Task Name": return search.value.projectTaskIds?.length || 0;
+  case "Owner": return search.value.assignedToIds?.length || 0;
   case "Activity Type": return search.value.activityNameIds?.length || 0;
   case "Activity Status": return search.value.activityStatusIds?.length || 0;
   case "Task Status": return search.value.statusIds?.length || 0;
@@ -1983,11 +2035,58 @@ watch(() => search.value.searchText, () => {
   refreshProjectTaskActivityList();
 });
 
-watch(() => search.value.projectIds, async (newValue, oldValue) => {
-  if (search.value?.projectIds?.length === 0 || newValue === oldValue) return;
+// watch(() => search.value.projectIds, async (newValue, oldValue) => {
+//   if (search.value?.projectIds?.length === 0 || newValue === oldValue) return;
 
+//   search.value.projectModuleIds = [];
+//   await projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
+// }, { immediate: true });
+
+watch(() => search.value.projectIds, async (newValue, oldValue) => {
   search.value.projectModuleIds = [];
-  await projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
+
+  if (!newValue || newValue.length === 0) {
+    projectModulesByProjectIdForDropdown.list.value = [];
+    return;
+  }
+
+  await projectModulesByProjectIdForDropdown.load(
+    false,
+    false,
+    newValue
+  );
+}, { immediate: true });
+
+watch(() => search.value.projectModuleIds, async (newValue, oldValue) => {
+  search.value.requirementIds = [];
+
+  if (!newValue || newValue.length === 0) {
+    requirementsByProjectModuleIdForDropdown.list.value = [];
+    return;
+  }
+
+  await requirementsByProjectModuleIdForDropdown.load(newValue);
+
+}, { immediate: true });
+
+watch(() => search.value.projectModuleIds, async (newValue, oldValue) => {
+  search.value.projectTaskIds = [];
+  
+  if(!search.value.requirementIds) {
+    search.value.projectTaskIds = [];
+  }
+
+  if (!newValue || newValue.length === 0) {
+    projectTasksByProjectIdAndModuleIdForDropdown.list.value = [];
+    return;
+  }
+
+  const { projectId, projectModuleId } = convertProjectIdsAndModuleIds(search.value.projectIds, newValue);
+  await projectTasksByProjectIdAndModuleIdForDropdown.load(false, projectId, projectModuleId);
+}, { immediate: true });
+
+watch(() => search.value.requirementIds, async (newValue, oldValue) => {
+  search.value.projectTaskIds = [];
 }, { immediate: true });
 
 watch(selectedField, (newVal) => {
@@ -2036,6 +2135,8 @@ watch(
 onMounted(async () => {
   projectNameDropdown.load();
   if (search.value.projectIds?.length > 0) projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
+  
+  // if (search.value.projectModuleIds?.length > 0) requirementsByProjectModuleIdForDropdown.load(search.value.projectModuleIds);
 
   activeEmployeesDropdown.load(user.siteId);
   projectTaskActivityNameDropdown.load("Project Activities");

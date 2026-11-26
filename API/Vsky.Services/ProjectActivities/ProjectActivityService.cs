@@ -303,6 +303,8 @@ namespace Vsky.Services.ProjectActivities
             string activeStatus,
             List<string> projectIds,
             List<string> projectModuleIds,
+            List<string> requirementIds,
+            List<string> projectTaskIds,
             List<string> assignedToIds,
             List<string> activityNameIds,
             List<string> activityStatusIds,
@@ -338,6 +340,12 @@ namespace Vsky.Services.ProjectActivities
 
             if (projectModuleIds?.Any() == true)
                 query = query.Where(x => projectModuleIds.Contains(x.ProjectModuleId));
+
+            if (requirementIds?.Any() == true)
+                query = query.Where(x => requirementIds.Contains(x.Task.Requirement.Id));
+
+            if (projectTaskIds?.Any() == true)
+                query = query.Where(x => projectTaskIds.Contains(x.TaskId));
 
             if (assignedToIds?.Any() == true)
                 query = query.Where(x => assignedToIds.Contains(x.AssignedToId));
@@ -482,6 +490,11 @@ namespace Vsky.Services.ProjectActivities
                         Id = x.Task.Status.Id,
                         DropDownValue = x.Task.Status.DropDownValue
                     },
+                    Requirement = new Requirement
+                    {
+                        Id = x.Task.Requirement.Id,
+                        Title = x.Task.Requirement.Title
+                    }
                 },
                 Project = new Project
                 {
