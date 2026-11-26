@@ -35,7 +35,7 @@
                     backgroundColor: scope.opt.bgColor || '',
                     color: scope.opt.color || ''
                   }"
-                  class="q-px-sm q-py-xs"
+                  class="q-px-sm q-py-xs self-start"
                 >
                   {{ scope.opt.text }}
                 </q-badge>

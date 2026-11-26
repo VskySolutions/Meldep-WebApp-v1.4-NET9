@@ -32,5 +32,9 @@ const style = computed(() => ({
   font-size: 12px;
   padding: 3px 8px;
   white-space: nowrap;
+  /* Always as wide as its label: inside a dropdown option (a column flex box) a badge would otherwise
+     stretch and colour the whole row. */
+  width: fit-content;
+  max-width: 100%;
 }
 </style>
