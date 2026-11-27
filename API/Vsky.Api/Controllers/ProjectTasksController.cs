@@ -410,7 +410,7 @@ namespace Vsky.Api.Controllers
             }
         }
 
-        [HttpGet("dropdown/multiTaskList/{isTemplate}/{projectId}/{projectModuleId}/{requirementId}")]
+        [HttpGet("dropdown/multiTaskList/{isTemplate}/{projectId?}/{projectModuleId?}/{requirementId?}")]
         [SiteMember]
         public async Task<IActionResult> GetAllProjectMultiTaskListForDropdown(bool isTemplate, string projectId = null, string projectModuleId = null, string requirementId = null)
         {

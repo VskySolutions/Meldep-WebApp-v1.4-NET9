@@ -107,7 +107,7 @@ export default {
   getProjectTaskListForDropdown (projectId, projectModuleId, employeeId) {
     return http.get(`/project-tasks/dropdown/list/${projectId}/${projectModuleId}/${employeeId}`).then(response => response.data);
   },
-  getAllProjectMultiTaskListForDropdown (isTemplate = false, projectId, projectModuleId, requirementId) {
+  getAllProjectMultiTaskListForDropdown (isTemplate = false, projectId = null, projectModuleId = null, requirementId = null) {
     return http.get(`/project-tasks/dropdown/multiTaskList/${isTemplate}/${projectId}/${projectModuleId}/${requirementId}`).then(response => response.data);
   },
   getAllProjectTaskWithProjectListForDropdown () {

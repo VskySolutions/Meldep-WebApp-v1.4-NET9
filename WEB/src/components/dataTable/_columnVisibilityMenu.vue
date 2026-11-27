@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import { Notify } from "quasar";
 
 const props = defineProps({
   allColumnNames: Array,
@@ -85,6 +86,18 @@ function toggle (colValue) {
     updated.splice(index, 1);
   } else {
     updated.push(colValue);
+  }
+
+  // Validation: At least one column must remain visible
+  if (updated.length === 0) {
+    Notify.create({
+      type: "warning",
+      message: "At least one column must remain visible.",
+      position: "top",
+      timeout: 2500
+    });
+
+    return;
   }
 
   emit("update:selectedColumnNames", updated);
