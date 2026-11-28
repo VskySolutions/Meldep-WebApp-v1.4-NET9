@@ -45,6 +45,8 @@ public class ProjectTask : BaseEntity
     [NotMapped]
     public int ProjectTaskNotesCount { get; set; }
     [NotMapped]
+    public bool HasTimesheet { get; set; }
+    [NotMapped]
     [JsonConverter(typeof(HoursConverter))]
     public decimal TotalTimesheetEstHours { get; set; }
 

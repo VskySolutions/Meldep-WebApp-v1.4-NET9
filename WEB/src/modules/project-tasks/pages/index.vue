@@ -830,7 +830,7 @@
                           <q-item-section avatar><q-icon name="o_copy" size="xs" /></q-item-section>
                           <q-item-section>Copy</q-item-section>
                         </q-item>
-                        <q-item v-if="props.row.isEditable" v-ripple clickable @click="onProjectTaskMove(props.row.id, props.row.name, props.row.projectModuleId, 'isMove', refreshProjectTaskList)">
+                        <q-item v-if="props.row.isEditable && (!props.row.hasTimesheet || hasOnlyAdminRole)" v-ripple clickable @click="onProjectTaskMove(props.row.id, props.row.name, props.row.projectModuleId, props.row.requirementId, 'isMove', refreshProjectTaskList)">
                           <q-item-section avatar><q-icon name="o_arrow_forward" size="xs" /></q-item-section>
                           <q-item-section>Move</q-item-section>
                         </q-item>
@@ -994,6 +994,7 @@ const loading = ref(true);
 const user = authStore.user;
 const adminRoles = ["admin", "site-super-admin", "system-super-admin", "project admin"];
 const role = user?.roles?.some(r => adminRoles.includes(r)) ? "admin" : "";
+const hasOnlyAdminRole = user?.roles?.some(r => r?.toLowerCase() === "admin") ?? false;
 const isViewer = user?.roles?.some(r => r?.toLowerCase() === "viewer") ?? false;
 
 const activeEdit = ref({ rowId: null, field: null });

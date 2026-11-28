@@ -54,7 +54,7 @@
                         :disable="!search.projectIds?.length"
                         :options="projectModulesByProjectIdForDropdown.list.value"
                         :filter="projectModulesByProjectIdForDropdown.filter"
-                      />                      
+                      />
                       <multiSelectDropdown
                         v-model="search.requirementIds"
                         label="Requirement"
@@ -486,15 +486,15 @@
                           <q-tooltip>View Project Module</q-tooltip>
                         </span>
                       </q-td>
-                      
+
                       <!-- Requirement -->
                       <q-td style="overflow-wrap: break-word; word-wrap: break-word; white-space: normal; width: 10%;" class="text-left hoverable-cell">
-                      <span 
-                        v-if="activityProps.row.task.requirement.title"                        
+                      <span
+                        v-if="activityProps.row.task.requirement.title"
                         @click="setActiveRowIdInLocalStorage(props.row.id); $router.push({ path: '/requirement-center', state: { requirementId: activityProps.row.task.requirement?.id } })"
                         >
                           {{ activityProps.row.task.requirement.title }}
-                          <q-tooltip>View Requirement</q-tooltip>
+                          <q-tooltip>Requirement Center</q-tooltip>
                         </span>
                       </q-td>
 
@@ -790,16 +790,7 @@
                                 </q-item-section>
                                 <q-item-section>{{ activityProps.row.active ? 'Make Inactive' : 'Set Active' }}</q-item-section>
                               </q-item>
-                              <q-item
-                                v-if="!isViewer || (isViewer && activityProps.row.isEditable)"
-                                v-ripple
-                                clickable
-                                @click="onSubmitProjectTaskActivityDelete(activityProps.row.id, activityProps.row.name, activityProps.row.project.name, refreshProjectTaskActivityList)"
-                              >
-                                <q-item-section avatar><q-icon name="o_delete_outline" color="negative" size="xs" /></q-item-section>
-                                <q-item-section class="text-negative">Delete</q-item-section>
-                              </q-item>
-                            </q-list>                            
+                            </q-list>
                           </q-menu>
                         </q-btn>
                       </q-td>
@@ -2071,7 +2062,7 @@ watch(() => search.value.projectModuleIds, async (newValue, oldValue) => {
 
 watch(() => search.value.projectModuleIds, async (newValue, oldValue) => {
   search.value.projectTaskIds = [];
-  
+
   if(!search.value.requirementIds) {
     search.value.projectTaskIds = [];
   }
@@ -2135,7 +2126,7 @@ watch(
 onMounted(async () => {
   projectNameDropdown.load();
   if (search.value.projectIds?.length > 0) projectModulesByProjectIdForDropdown.load(false, false, search.value.projectIds);
-  
+
   // if (search.value.projectModuleIds?.length > 0) requirementsByProjectModuleIdForDropdown.load(search.value.projectModuleIds);
 
   activeEmployeesDropdown.load(user.siteId);

@@ -55,6 +55,7 @@ namespace Vsky.Api.Models
         public int ProjectNotesCount { get; set; }
         public string ProjectSwimlaneId { get; set; }
         public int ProjectTaskNotesCount { get; set; }
+        public bool HasTimesheet { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime? DueDate { get; set; }

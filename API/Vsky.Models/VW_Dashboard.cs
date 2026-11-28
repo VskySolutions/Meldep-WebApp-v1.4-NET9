@@ -203,6 +203,7 @@ namespace Vsky.Models
         public int ActivityCloseCount { get; set; }
         public int ActivityCompletedCount { get; set; }
         public string Color { get; set; }
+        public bool HasTimesheet { get; set; }
 
         [NotMapped]
         public bool CurrentUserManage { get; set; }

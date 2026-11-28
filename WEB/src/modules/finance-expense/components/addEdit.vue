@@ -199,7 +199,7 @@
                           @click="viewFile(file)"
                         >
                           <span class="truncate-text">
-                            {{ file.file?.name || file.SeoFilename || extractFileName(file.file?.seoFilename) }}
+                            {{ file.file?.name || file.name || extractFileName(file.file?.seoFilename) }}
                           </span>
                         </q-btn>
                       </div>
@@ -736,7 +736,7 @@ const onSubmit = async (statusValue) => {
 
     const isExpenseValid = await v$.value.$validate();
     if (!isExpenseValid) return;
-    
+
     if (!isFilesValid.value) {
       notifyWarning({ message: "Please upload valid files" });
       return;

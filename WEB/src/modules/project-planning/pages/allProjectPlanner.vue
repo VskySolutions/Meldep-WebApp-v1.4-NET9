@@ -1949,7 +1949,7 @@
                                                   <q-item-section avatar><q-icon name="o_copy" size="xs" /></q-item-section>
                                                   <q-item-section>Copy</q-item-section>
                                                 </q-item>
-                                                <q-item v-if="props.row.isEditable && props.row.status != 'Close'" v-ripple class="" clickable @click="onProjectTaskMove(props.row.id, props.row.name, props.row.projectModuleId, props.row.requirementId, 'isMove', refreshProjectTaskList)">
+                                                <q-item v-if="props.row.isEditable && props.row.status != 'Close' && (!props.row.hasTimesheet || hasOnlyAdminRole)" v-ripple class="" clickable @click="onProjectTaskMove(props.row.id, props.row.name, props.row.projectModuleId, props.row.requirementId, 'isMove', refreshProjectTaskList)">
                                                   <q-item-section avatar><q-icon name="o_arrow_forward" size="xs" /></q-item-section>
                                                   <q-item-section>Move</q-item-section>
                                                 </q-item>
@@ -2648,6 +2648,7 @@ const user = authStore.user;
 const adminRoles = ["admin", "site-super-admin", "system-super-admin"];
 const role = user?.roles?.some(r => adminRoles.includes(r)) ? "admin" : "";
 const isViewer = user?.roles?.some(r => r?.toLowerCase() === "viewer") ?? false;
+const hasOnlyAdminRole = user?.roles?.some(r => r?.toLowerCase() === "admin") ?? false;
 
 const currentSiteId = computed(() => user.siteId);
 const loading = ref(true);

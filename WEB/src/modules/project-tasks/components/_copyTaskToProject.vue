@@ -11,7 +11,7 @@
           <div class="q-gutter-y-md">
             <fieldset>
               <div class="row q-col-gutter-x-md q-mb-md">
-                <formMultiSelectDropdown
+                <formSingleSelectDropdown
                   v-model="model.projectIds"
                   label="Project Name"
                   :options="projectNameDropdownSingleSelect.list.value"
@@ -21,7 +21,7 @@
                   :onBlur="() => v$.projectIds.$touch()"
                 />
               </div>
-              <div v-if="model.projectIds.length > 0">
+              <!-- <div v-if="model.projectIds.length > 0"> -->
                 <label class="label q-mb-xs text-black">Task<span class="required">*</span></label>
                 <q-table
                   ref="tableRef" v-model:pagination="pagination" flat bordered :loading="loading" :rows="projectTasks" :columns="columns" row-key="id" separator="cell"
@@ -40,7 +40,7 @@
                     </q-tr>
                   </template>
                 </q-table>
-              </div>
+              <!-- </div> -->
             </fieldset>
           </div>
         </div>
@@ -62,7 +62,8 @@ import { notifySuccess, notifyError } from "assets/utils";
 import taskService from "modules/project-tasks/projectTasks.service";
 import useFilters from "composables/useFilters";
 import { required, helpers } from "@vuelidate/validators";
-import formMultiSelectDropdown from "src/components/form-inputs/_formMultiSelectDropdown.vue";
+// import formMultiSelectDropdown from "src/components/form-inputs/_formMultiSelectDropdown.vue";
+import formSingleSelectDropdown from "src/components/form-inputs/_formSingleSelectDropdown.vue";
 
 import projectModule from "src/modules/project/utils/dropdowns.js";
 
@@ -91,7 +92,7 @@ const { dialogRef, onDialogHide, onDialogCancel } = useDialogPluginComponent();
 
 // Define model values
 const model = ref({
-  projectIds: [],
+  projectIds: '',
   taskId: taskIds,
   projectModuleId,
   requirementId,
@@ -157,7 +158,9 @@ const onSubmit = async () => {
     if (await v$.value.$validate()) {
       processing.value = true;
       model.value.taskId = taskIds;
+      model.value.projectIds = [model.value.projectIds];
       model.value.isCopyOrMove = props.isCopy ? props.isCopy : props.isMove;
+      console.log(model.value);
       taskService.copyTaskToProjects(model.value).then((resp) => {
         if (props.isCopy) {
           notifySuccess({ message: "Project task copied successfully." });

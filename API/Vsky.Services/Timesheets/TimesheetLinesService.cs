@@ -147,6 +147,19 @@ namespace Vsky.Services.Timesheets
 
         #endregion
 
+        #region
+        public async Task<List<TimesheetLines>> GetTimesheetLinesByTaskId(string taskId)
+        {
+            return await _timesheetLinesRepository.Table
+                .Where(x =>
+                    !x.Deleted &&
+                    x.ProjectTaskId == taskId &&
+                    x.Timesheet != null &&
+                    !x.Timesheet.Deleted)
+                .ToListAsync();
+        }
+        #endregion
+
         #region GetTimesheetLinesDetailsById
         // Title: GetTimesheetLinesDetailsById
         // Description: The method selects relevant fields from the timesheet Line entity, and returns a `Timesheet Line` object with these details. 

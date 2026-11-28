@@ -2977,8 +2977,24 @@ namespace Vsky.Api.Controllers
                                     _taskService.InsertProjectTask(taskEntity);
 
                                     bool IsWorkboardUpdated = await UpdateProjectSwimlaneListTask(SiteId, taskEntity, LoggedUserId, GetDateTime);
+
+                                    var timesheetLines = await _timesheetLinesService.GetTimesheetLinesByTaskId(model.TaskId);
+
+                                    if (timesheetLines.Any())
+                                    {
+                                        foreach (var item in timesheetLines)
+                                        {
+                                            item.ProjectId = projectid.ToString();
+                                            item.ProjectModuleId = entityModule.Id;
+                                            item.ProjectTaskId = model.TaskId;
+                                        }
+
+                                        _timesheetLinesService.UpdateTimesheetLinesList(timesheetLines);
+                                    }
+
                                 }
                             }
+
                         }
                     }
                     if (model.IsCopyOrMove == "isMove")

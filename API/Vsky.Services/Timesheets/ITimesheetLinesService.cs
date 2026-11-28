@@ -16,6 +16,10 @@ namespace Vsky.Services.Timesheets
         Task<List<TimesheetLines>> GetTimesheetByTaskId(string id);
         #endregion
 
+        #region GetTimesheetLinesByTaskId
+        Task<List<TimesheetLines>> GetTimesheetLinesByTaskId(string taskId);
+        #endregion
+
         #region GetTimesheetLinesDetailsById
         Task<TimesheetLines> GetTimesheetLinesDetailsById(string id);
         #endregion

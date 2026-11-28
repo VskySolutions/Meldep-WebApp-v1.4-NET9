@@ -250,7 +250,7 @@ namespace Vsky.Services.ProjectTasks
             var taskIds = query.Select(x => x.Id).ToList();
 
             var timesheetSums = _timesheetLinerepository.TableNoTracking
-            .Where(t => !t.Deleted && taskIds.Contains(t.ProjectTaskId))
+            .Where(t => !t.Deleted && !t.Timesheet.Deleted && taskIds.Contains(t.ProjectTaskId))
             .GroupBy(t => t.ProjectTaskId)
             .Select(g => new
             {
@@ -278,6 +278,7 @@ namespace Vsky.Services.ProjectTasks
                 CreatedOnUtc = x.CreatedOnUtc,
                 UpdatedOnUtc = x.UpdatedOnUtc,
                 TotalTimesheetEstHours = timesheetSums.ContainsKey(x.Id) ? timesheetSums[x.Id] : 0,
+                HasTimesheet = timesheetSums.ContainsKey(x.Id),
                 Project = new Project
                 {
                     Id = x.Project.Id,
