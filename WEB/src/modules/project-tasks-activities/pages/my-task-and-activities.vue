@@ -1320,12 +1320,14 @@ const { activeEmployeesDropdown } = employeeModule();
 const { projectTaskStatusForDropdown, projectTasksByProjectIdAndModuleIdForDropdown } = projectTaskModule();
 const { requirementsByProjectModuleIdForDropdown } = requirementModule();
 
-const convertProjectIdsAndModuleIds = (projectIds, moduleIds) => {
+const convertProjectIdsAndModuleIds = (projectIds, moduleIds, requirementIds) => {
   const projectId = Array.isArray(projectIds) ? projectIds.join(",") : projectIds || null;
   const projectModuleId = Array.isArray(moduleIds) ? moduleIds.join(",") : moduleIds || null;
+  const requirementId = Array.isArray(requirementIds) ? requirementIds.join(",") : requirementIds || null;
   return {
     projectId: projectId || null,
-    projectModuleId: projectModuleId || null
+    projectModuleId: projectModuleId || null,
+    requirementId: requirementId || null
   };
 };
 
@@ -2076,8 +2078,19 @@ watch(() => search.value.projectModuleIds, async (newValue, oldValue) => {
   await projectTasksByProjectIdAndModuleIdForDropdown.load(false, projectId, projectModuleId);
 }, { immediate: true });
 
-watch(() => search.value.requirementIds, async (newValue, oldValue) => {
+// watch(() => search.value.requirementIds, async (newValue, oldValue) => {
+//   search.value.projectTaskIds = [];
+// }, { immediate: true });
+watch(() => search.value.requirementIds, (newValue, oldValue) => {
+  if (search.value.requirementIds?.length === 0) {
+    search.value.projectTaskIds = [];
+    return;
+  }
+  if (search.value?.requirementIds?.length === 0 || newValue === oldValue) return;
+
   search.value.projectTaskIds = [];
+  const { projectId, projectModuleId, requirementId } = convertProjectIdsAndModuleIds(search.value.projectIds, search.value.projectModuleIds, newValue);
+  projectTasksByProjectIdAndModuleIdForDropdown.load(search.value.isTemplate, projectId, projectModuleId, requirementId);
 }, { immediate: true });
 
 watch(selectedField, (newVal) => {
