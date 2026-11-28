@@ -1168,6 +1168,13 @@ const { requirementByProjectModuleIdForDropdownSingleSelect } = requirementModul
 // Save static search into localstorage.
 // ----------------------------
 
+const normalize = (val) => {
+  if (Array.isArray(val)) {
+    return val.length > 0 ? val[0] : null;
+  }
+  return val ?? null;
+};
+
 watch(() => search.value.searchText, () => {
   searchLoader.value = true;
   refreshTimesheetList();
@@ -1179,36 +1186,78 @@ watch(() => search.value.createdBy, (newValue) => {
   }
 });
 
-watch(() => search.value.projectId, async (newValue, oldValue) => {
-  if (!newValue || newValue === oldValue) return;
+// watch(() => search.value.projectId, async (newValue, oldValue) => {
+//   if (!newValue || newValue === oldValue) return;
 
-  search.value.projectModuleId = null;
-  await projectModulesByProjectIdForDropdownSingleSelect.load(false, false, search.value.projectId);
-}, { immediate: true });
-
-const normalize = (val) => {
-  if (Array.isArray(val)) {
-    return val.length > 0 ? val[0] : null;
-  }
-  return val ?? null;
-};
-
+//   search.value.projectModuleId = null;
+//   await projectModulesByProjectIdForDropdownSingleSelect.load(false, false, search.value.projectId);
+// }, { immediate: true });
 watch(
-  () => search.value.projectModuleId,
-  async (newId, oldId) => {
-    const newVal = normalize(newId);
-    const oldVal = normalize(oldId);
+  () => search.value.projectId,
+  async (newValue, oldValue) => {
+    const newProjectId = normalize(newValue);
+    const oldProjectId = normalize(oldValue);
 
-    const isValid = newVal != null && newVal !== "";
-
-    // Clear Requirement only when the module actually changes
-    if (oldId !== undefined && oldId !== null && newVal !== oldVal) {
+    if (oldValue !== undefined && newProjectId !== oldProjectId) {
+      search.value.projectModuleId = null;
       search.value.requirementId = null;
+      search.value.projectTaskId = null;
+
+      requirementByProjectModuleIdForDropdownSingleSelect.list.value = [];
+      projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.list.value = [];
     }
 
-    // Always load the Requirement dropdown
-    if (isValid) {
-      await requirementByProjectModuleIdForDropdownSingleSelect.load(newVal);
+    if (newProjectId) {
+      await projectModulesByProjectIdForDropdownSingleSelect.load(
+        false,
+        false,
+        newProjectId
+      );
+    } else {
+      projectModulesByProjectIdForDropdownSingleSelect.list.value = [];
+    }
+  },
+  { immediate: true }
+);
+
+// watch(
+//   () => search.value.projectModuleId,
+//   async (newId, oldId) => {
+//     const newVal = normalize(newId);
+//     const oldVal = normalize(oldId);
+
+//     const isValid = newVal != null && newVal !== "";
+
+//     // Clear Requirement only when the module actually changes
+//     if (oldId !== undefined && oldId !== null && newVal !== oldVal) {
+//       search.value.requirementId = null;
+//     }
+
+//     // Always load the Requirement dropdown
+//     if (isValid) {
+//       await requirementByProjectModuleIdForDropdownSingleSelect.load(newVal);
+//     } else {
+//       requirementByProjectModuleIdForDropdownSingleSelect.list.value = [];
+//     }
+//   },
+//   { immediate: true }
+// );
+watch(
+  () => search.value.projectModuleId,
+  async (newValue, oldValue) => {
+    const newModuleId = normalize(newValue);
+    const oldModuleId = normalize(oldValue);
+
+    // Reset requirement and task only when the module changes.
+    if (oldValue !== undefined && newModuleId !== oldModuleId) {
+      search.value.requirementId = null;
+      search.value.projectTaskId = null;
+
+      projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.list.value = [];
+    }
+
+    if (newModuleId) {
+      await requirementByProjectModuleIdForDropdownSingleSelect.load(newModuleId);
     } else {
       requirementByProjectModuleIdForDropdownSingleSelect.list.value = [];
     }
@@ -1223,16 +1272,44 @@ watch(
 //   projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId);
 // }, { immediate: true });
 
-watch(() => search.value.requirementId, (newValue, oldValue) => {
-  // if (!newValue || newValue === oldValue) return;
+// watch(() => search.value.requirementId, (newValue, oldValue) => {
+//   // if (!newValue || newValue === oldValue) return;
 
-  // Clear Requirement only when the module actually changes
-  if (oldValue !== undefined && oldValue !== null && newValue !== oldValue) {
-    search.value.projectTaskId = null;
-  }
+//   // Clear Requirement only when the module actually changes
+//   if (oldValue !== undefined && oldValue !== null && newValue !== oldValue) {
+//     search.value.projectTaskId = null;
+//   }
 
-  projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId, search.value.requirementId);
-}, { immediate: true });
+//   projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId, search.value.requirementId);
+// }, { immediate: true });
+watch(
+  () => [
+    search.value.projectId,
+    search.value.projectModuleId,
+    search.value.requirementId
+  ],
+  async ([projectId, projectModuleId, requirementId]) => {
+    const project = normalize(projectId);
+    const module = normalize(projectModuleId);
+    const requirement = normalize(requirementId);
+
+    // A module must be selected before loading tasks.
+    if (!module || !requirement) {
+      projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.list.value = [];
+      search.value.projectTaskId = null;
+      return;
+    }
+
+    // Load tasks according to the selected hierarchy.
+    await projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(
+      false,
+      project,
+      module,
+      requirement
+    );
+  },
+  { immediate: true }
+);
 
 watch(activeRowId, (val) => {
   const formattedSorts = {};
@@ -1259,8 +1336,8 @@ onMounted(() => {
   activeEmployeesDropdownSingleSelect.load(user.siteId);
   projectNameDropdownSingleSelect.load();
 
-  if (search.value.projectId) projectModulesByProjectIdForDropdownSingleSelect.load(false, false, search.value.projectId);
-  if (search.value.projectModuleId) projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId);
+  // if (search.value.projectId) projectModulesByProjectIdForDropdownSingleSelect.load(false, false, search.value.projectId);
+  // if (search.value.projectModuleId) projectTasksByProjectIdAndModuleIdForDropdownSingleSelect.load(false, search.value.projectId, search.value.projectModuleId);
 
   // if (!activeRowId.value && highlightTimesheetId) {
   //   activeRowId.value = highlightTimesheetId;
