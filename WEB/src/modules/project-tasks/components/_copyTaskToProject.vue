@@ -160,7 +160,6 @@ const onSubmit = async () => {
       model.value.taskId = taskIds;
       model.value.projectIds = [model.value.projectIds];
       model.value.isCopyOrMove = props.isCopy ? props.isCopy : props.isMove;
-      console.log(model.value);
       taskService.copyTaskToProjects(model.value).then((resp) => {
         if (props.isCopy) {
           notifySuccess({ message: "Project task copied successfully." });
